@@ -14,6 +14,93 @@ import {
 type Org = any;
 type Emp = any;
 type PayFrequency = "WEEKLY" | "MONTHLY" | "ANNUAL";
+type EmploymentType = "FULL_TIME" | "PART_TIME";
+
+type CompanyForm = {
+  name: string;
+  address1: string;
+  address2: string;
+  addressHouseNo: string;
+  addressStreet: string;
+  addressLocality: string;
+  addressPostcode: string;
+  vatNumber: string;
+  phone: string;
+  phone2: string;
+  peNumber: string;
+  itRegistrationNumber: string;
+  jobsplusRegistrationNumber: string;
+  payrollManagerFullName: string;
+  payrollManagerPosition: string;
+};
+
+type EmployeeForm = {
+  firstName: string;
+  lastName: string;
+  designation: string;
+  email: string;
+  phone: string;
+  idNumber: string;
+  spouseIdNumber: string;
+  ssnNumber: string;
+  addressHouseNo: string;
+  addressStreet: string;
+  addressLocality: string;
+  addressPostcode: string;
+  baseWage: string;
+  payFrequency: PayFrequency;
+  taxStatus: number;
+  employmentStartDate: string;
+  normalWeeklyHours: string;
+  under17: boolean;
+  before1962: boolean;
+  isStudent: boolean;
+  employmentType: EmploymentType;
+  hourlyWage: string;
+};
+
+const emptyCompanyForm = (): CompanyForm => ({
+  name: "",
+  address1: "",
+  address2: "",
+  addressHouseNo: "",
+  addressStreet: "",
+  addressLocality: "",
+  addressPostcode: "",
+  vatNumber: "",
+  phone: "",
+  phone2: "",
+  peNumber: "",
+  itRegistrationNumber: "",
+  jobsplusRegistrationNumber: "",
+  payrollManagerFullName: "",
+  payrollManagerPosition: "",
+});
+
+const emptyEmployeeForm = (): EmployeeForm => ({
+  firstName: "",
+  lastName: "",
+  designation: "",
+  email: "",
+  phone: "",
+  idNumber: "",
+  spouseIdNumber: "",
+  ssnNumber: "",
+  addressHouseNo: "",
+  addressStreet: "",
+  addressLocality: "",
+  addressPostcode: "",
+  baseWage: "",
+  payFrequency: "MONTHLY",
+  taxStatus: 1,
+  employmentStartDate: new Date().toISOString().slice(0, 10),
+  normalWeeklyHours: "40",
+  under17: false,
+  before1962: false,
+  isStudent: false,
+  employmentType: "FULL_TIME",
+  hourlyWage: "",
+});
 
 function taxStatusLabel(v: any): string {
   const n = Number(v);
@@ -84,48 +171,9 @@ export default function OrganisationsClient({ organisations }: { organisations: 
     open: false,
   });
 
-  const [companyForm, setCompanyForm] = useState({
-    name: "",
-    address1: "",
-    address2: "",
-    addressHouseNo: "",
-    addressStreet: "",
-    addressLocality: "",
-    addressPostcode: "",
-    vatNumber: "",
-    phone: "",
-    phone2: "",
-    peNumber: "",
-    itRegistrationNumber: "",
-    jobsplusRegistrationNumber: "",
-    payrollManagerFullName: "",
-    payrollManagerPosition: "",
-  });
+  const [companyForm, setCompanyForm] = useState<CompanyForm>(emptyCompanyForm);
 
-  const [employeeForm, setEmployeeForm] = useState({
-    firstName: "",
-    lastName: "",
-    designation: "",
-    email: "",
-    phone: "",
-    idNumber: "",
-    spouseIdNumber: "",
-    ssnNumber: "",
-    addressHouseNo: "",
-    addressStreet: "",
-    addressLocality: "",
-    addressPostcode: "",
-    baseWage: "",
-    payFrequency: "MONTHLY" as PayFrequency,
-    taxStatus: 1,
-    employmentStartDate: new Date().toISOString().slice(0,10),
-    normalWeeklyHours: "40",
-    under17: false,
-    before1962: false,
-    isStudent: false,
-    employmentType: "FULL_TIME",
-    hourlyWage: "",
-  });
+  const [employeeForm, setEmployeeForm] = useState<EmployeeForm>(emptyEmployeeForm);
 
   // clear employee search when switching company
   useEffect(() => {
@@ -134,23 +182,7 @@ export default function OrganisationsClient({ organisations }: { organisations: 
   }, [selectedOrgId]);
 
   function openAddCompany() {
-    setCompanyForm({
-      name: "",
-      address1: "",
-      address2: "",
-      addressHouseNo: "",
-      addressStreet: "",
-      addressLocality: "",
-      addressPostcode: "",
-      vatNumber: "",
-      phone: "",
-      phone2: "",
-      peNumber: "",
-      itRegistrationNumber: "",
-      jobsplusRegistrationNumber: "",
-      payrollManagerFullName: "",
-      payrollManagerPosition: "",
-    });
+    setCompanyForm(emptyCompanyForm());
     setCompanyModal({ mode: "add", open: true });
   }
 
@@ -178,30 +210,7 @@ export default function OrganisationsClient({ organisations }: { organisations: 
 
   function openAddEmployee() {
     if (!selectedOrg) return;
-    setEmployeeForm({
-      firstName: "",
-      lastName: "",
-      designation: "",
-      email: "",
-      phone: "",
-      idNumber: "",
-      spouseIdNumber: "",
-      ssnNumber: "",
-      addressHouseNo: "",
-      addressStreet: "",
-      addressLocality: "",
-      addressPostcode: "",
-      baseWage: "",
-      payFrequency: "MONTHLY",
-      taxStatus: 1,
-    employmentStartDate: new Date().toISOString().slice(0,10),
-    normalWeeklyHours: "40",
-    under17: false,
-    before1962: false,
-    isStudent: false,
-    employmentType: "FULL_TIME",
-    hourlyWage: "",
-    });
+    setEmployeeForm(emptyEmployeeForm());
     setEmployeeModal({ mode: "add", open: true });
   }
 
@@ -228,7 +237,7 @@ export default function OrganisationsClient({ organisations }: { organisations: 
       under17: !!selectedEmp.under17,
       before1962: !!selectedEmp.before1962,
       isStudent: !!selectedEmp.isStudent,
-      employmentType: selectedEmp.employmentType ?? "FULL_TIME",
+      employmentType: (selectedEmp.employmentType ?? "FULL_TIME") as EmploymentType,
       hourlyWage: selectedEmp.hourlyWage ? ((selectedEmp.hourlyWage ?? 0) / 100).toFixed(2) : "",
     });
     setEmployeeModal({ mode: "edit", open: true });
@@ -582,7 +591,7 @@ export default function OrganisationsClient({ organisations }: { organisations: 
                 onChange={(e) =>
                   setEmployeeForm((s) => ({
                     ...s,
-                    employmentType: e.target.value as "FULL_TIME" | "PART_TIME",
+                    employmentType: e.target.value as EmploymentType,
                     hourlyWage: e.target.value === "PART_TIME" ? s.hourlyWage : "",
                   }))
                 }
