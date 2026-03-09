@@ -8,16 +8,26 @@ const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 function normalizeStoredPath(input: string) {
   const value = (input || "").replace(/\\/g, "/").replace(/^\/+/, "");
   const normalized = path.posix.normalize(value);
+
   if (!normalized || normalized.startsWith("..") || normalized.includes("../")) {
     throw new Error("Invalid PDF path");
   }
+
   return normalized;
 }
 
-export async function savePrivatePdf(storedPath: string, data: Uint8Array | Buffer | ArrayBuffer) {
+function toBuffer(data: Uint8Array | Buffer | ArrayBuffer): Buffer {
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof ArrayBuffer) return Buffer.from(data);
+  return Buffer.from(data);
+}
+
+export async function savePrivatePdf(
+  storedPath: string,
+  data: Uint8Array | Buffer | ArrayBuffer
+) {
   const normalized = normalizeStoredPath(storedPath);
-  const body =
-    data instanceof ArrayBuffer ? data : data instanceof Uint8Array ? data : new Uint8Array(data);
+  const body = toBuffer(data);
 
   if (USE_BLOB) {
     const blob = await put(normalized, body, {
@@ -25,6 +35,7 @@ export async function savePrivatePdf(storedPath: string, data: Uint8Array | Buff
       addRandomSuffix: false,
       contentType: "application/pdf",
     });
+
     return {
       storage: "blob" as const,
       storedPath: blob.pathname,
@@ -35,7 +46,7 @@ export async function savePrivatePdf(storedPath: string, data: Uint8Array | Buff
 
   const absolutePath = path.join(DISK_BASE, normalized);
   await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-  await fs.writeFile(absolutePath, Buffer.from(body));
+  await fs.writeFile(absolutePath, body);
 
   return {
     storage: "disk" as const,
@@ -50,6 +61,7 @@ export async function getPrivatePdf(storedPath: string) {
 
   if (USE_BLOB) {
     const result = await get(normalized, { access: "private" });
+
     if (!result || result.statusCode !== 200 || !result.stream) {
       return null;
     }
@@ -75,6 +87,7 @@ export async function getPrivatePdf(storedPath: string) {
 
 export async function deletePrivatePdf(storedPath: string | null | undefined) {
   if (!storedPath) return;
+
   const normalized = normalizeStoredPath(storedPath);
 
   if (USE_BLOB) {
@@ -83,6 +96,7 @@ export async function deletePrivatePdf(storedPath: string | null | undefined) {
   }
 
   const absolutePath = path.join(DISK_BASE, normalized);
+
   try {
     await fs.unlink(absolutePath);
   } catch {
