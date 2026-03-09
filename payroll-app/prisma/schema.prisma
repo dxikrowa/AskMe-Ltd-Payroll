@@ -1,0 +1,424 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  PAYROLL
+  EMPLOYEE
+  VIEWER
+}
+
+enum PayFrequency {
+  WEEKLY
+  MONTHLY
+  ANNUAL
+}
+
+enum PayRunStatus {
+  DRAFT
+  REVIEW
+  FINALIZED
+  PAID
+}
+
+enum FssFormType {
+  FS3
+  FS5
+  FS7
+}
+
+enum LeaveType {
+  MATERNITY
+  SICK
+  VACATION
+  UNPAID
+  OTHER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  // Two-Factor Authentication
+  twoFactorSecret      String?   // AES-256-GCM encrypted TOTP secret
+  twoFactorEnabled     Boolean   @default(false)
+  twoFactorBackupCodes String?   // JSON array of HMAC-SHA-256 hashed backup codes
+  
+  // Password auth (optional). If null, the user can still sign in via Google / magic link.
+  passwordHash        String?
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+
+  accounts Account[]
+  sessions Session[]
+
+  // Stripe (user-level for now; later you can move billing to org-level)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  stripeStatus         String?
+
+  memberships Membership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Organisation {
+  id                         String  @id @default(cuid())
+  name                       String
+  country                    String  @default("MT") // Malta by default
+  currency                   String  @default("EUR")
+  address1                   String?
+  address2                   String?
+  city                       String?
+  postcode                   String?
+  // Separated address parts (preferred for FSS forms)
+  addressHouseNo             String?
+  addressStreet              String?
+  addressLocality            String?
+  addressPostcode            String?
+  phone                      String?
+  phone2                     String?
+  peNumber                   String?
+  vatNumber                  String?
+  companyRegistrationNumber  String?
+  itRegistrationNumber       String?
+  jobsplusRegistrationNumber String?
+
+  // Payroll payer (for FSS forms)
+  payrollManagerFullName String?
+  payrollManagerPosition String?
+  // Optional: store org-level stripe later
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  stripePriceId          String?
+  stripeStatus           String?
+
+  memberships Membership[]
+  employees   Employee[]
+  payRuns     PayRun[]
+  payslips    Payslip[]
+  fssForms    FssForm[]
+
+  // Timesheets / Leave
+  timesheetEntries           TimesheetEntry[]
+  leaveEntries               LeaveEntry[]
+  vacationLeaveEntries       VacationLeaveEntry[]
+  vacationLeaveCarryForwards VacationLeaveCarryForward[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model Membership {
+  id             String @id @default(cuid())
+  userId         String
+  organisationId String
+  role           Role   @default(OWNER)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, organisationId])
+  @@index([organisationId])
+}
+
+model Employee {
+  id             String @id @default(cuid())
+  organisationId String
+
+  employeeNo     String? // employee id
+  firstName      String
+  lastName       String
+  idNumber       String?
+  spouseIdNumber String?
+  ssnNumber      String?
+  email          String?
+  phone          String?
+  designation    String?
+
+  // Employment metadata (used for vacation leave reset)
+  employmentStartDate DateTime @default(now())
+
+  // Normal weekly hours (used for pro-rata vacation leave / part-time)
+  normalWeeklyHours Int @default(40)
+
+  // Optional flags for contributions
+  isStudent Boolean @default(false)
+
+  // Vacation leave running balance (minutes). Accrues monthly.
+  vacationLeaveBalanceMinutes Int       @default(0)
+  vacationLeaveResetAt        DateTime?
+
+  // Separated address parts (preferred for FSS forms)
+  addressHouseNo  String?
+  addressStreet   String?
+  addressLocality String?
+  addressPostcode String?
+
+  // Payroll inputs (Malta rules)
+  taxStatus    Int          @default(1) // 1–7
+  payFrequency PayFrequency @default(MONTHLY)
+  baseWage     Int          @default(0) // cents (e.g. 150000 = €1500.00)
+
+  includeNI         Boolean @default(true)
+  under17           Boolean @default(false)
+  apprentice        Boolean @default(false)
+  before1962        Boolean @default(false)
+  includeAllowance1 Boolean @default(false)
+  includeAllowance2 Boolean @default(false)
+  includeBonus1     Boolean @default(false)
+  includeBonus2     Boolean @default(false)
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  payslips     Payslip[]
+  fssForms     FssForm[]
+
+  // Timesheets / Leave
+  timesheetEntries TimesheetEntry[]
+  leaveEntries     LeaveEntry[]
+
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  vacationLeaveEntries       VacationLeaveEntry[]
+  vacationLeaveCarryForwards VacationLeaveCarryForward[]
+
+  @@index([organisationId])
+  @@index([email])
+}
+
+model VacationLeaveCarryForward {
+  id             String @id @default(cuid())
+  organisationId String
+  employeeId     String
+
+  // The start date of the entitlement year this carry-forward applies to.
+  // Only ONE carry-forward entry should exist per employee per entitlement year.
+  cycleStart DateTime
+
+  minutesCarried Int
+  notes          String?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, cycleStart])
+  @@index([organisationId, employeeId])
+}
+
+model PayRun {
+  id             String       @id @default(cuid())
+  organisationId String
+  status         PayRunStatus @default(DRAFT)
+
+  periodFrom String
+  periodTo   String
+  payDate    String
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  payslips     Payslip[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organisationId])
+}
+
+model Payslip {
+  id             String  @id @default(cuid())
+  organisationId String
+  employeeId     String
+  payRunId       String?
+
+  // Store results (cents) for auditing
+  grossCents     Int
+  taxCents       Int
+  niCents        Int
+  netCents       Int
+  allowanceCents Int @default(0)
+  bonusCents     Int @default(0)
+
+  // Optional add-ons sourced from timesheets / leave trackers
+  overtimeCents Int @default(0)
+
+  // Employer-only maternity fund contribution (FSS FS5/FS7)
+  maternityFundCents Int @default(0)
+
+  // Vacation leave tracking (minutes)
+  vacationEntitledMinutes  Int @default(0)
+  vacationConsumedMinutes  Int @default(0)
+  vacationRemainingMinutes Int @default(0)
+
+  // Pay period represented by this payslip (helps users when PDFs are generated late)
+  payPeriodFrom DateTime?
+  payPeriodTo   DateTime?
+
+  // Optional: store generated PDF path or blob ref later
+  pdfPath String?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payRun       PayRun?      @relation(fields: [payRunId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([organisationId])
+  @@index([employeeId])
+}
+
+model TimesheetEntry {
+  id             String @id @default(cuid())
+  organisationId String
+  employeeId     String
+
+  // Date of the overtime work
+  date DateTime
+
+  // Overtime hours (stored as minutes for accuracy)
+  minutes      Int
+  // Optional hourly rate (cents). If null, falls back to employee base wage derived rate.
+  rateCents    Int?
+  // Multiplier (e.g. 1.5x). Store as integer basis points (150 = 1.50)
+  multiplierBp Int  @default(100)
+
+  notes String?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([organisationId, employeeId, date])
+}
+
+model VacationLeaveEntry {
+  id             String @id @default(cuid())
+  organisationId String
+  employeeId     String
+
+  // Date the leave was taken (or recorded)
+  date DateTime
+
+  // Minutes of vacation leave used
+  minutesUsed Int
+
+  notes String?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([organisationId, employeeId, date])
+}
+
+model LeaveEntry {
+  id             String  @id @default(cuid())
+  organisationId String
+  employeeId     String?
+
+  type      LeaveType @default(MATERNITY)
+  startDate DateTime
+  endDate   DateTime
+
+  // For maternity only (as requested): contribution amount that should appear in FS5/FS7.
+  maternityContributionCents Int @default(0)
+
+  notes String?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employee     Employee?    @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([organisationId, type, startDate])
+}
+
+model FssForm {
+  id             String      @id @default(cuid())
+  organisationId String
+  type           FssFormType
+
+  // Period
+  year  Int
+  month Int? // 1-12 (FS5 + per-month data for FS7 if desired)
+
+  // Optional association
+  employeeId String?
+
+  // Source selections
+  sourcePayslipIds String[] @default([])
+  sourceFssFormIds String[] @default([])
+
+  // Editable form payload used to generate the PDF
+  data Json
+
+  pdfPath String?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employee     Employee?    @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([organisationId, type, year])
+  @@index([organisationId, type, year, month])
+  @@index([employeeId])
+}
+
+// ---- NextAuth tables (keep if you already use them) ----
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+
