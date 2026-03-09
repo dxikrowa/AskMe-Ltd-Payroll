@@ -1,3 +1,4 @@
+
 export const runtime = "nodejs";
 
 import { headers } from "next/headers";
@@ -5,27 +6,34 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-01-28.clover",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-01-28.clover" });
+
+async function updateUserFromSubscription(subscription: Stripe.Subscription, fallbackCustomerId?: string | null, fallbackUserId?: string | null) {
+  const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
+  const userId = subscription.metadata?.userId || fallbackUserId || undefined;
+  const priceId = subscription.items.data[0]?.price.id ?? null;
+  const data = { stripeSubscriptionId: subscription.id, stripeStatus: subscription.status, stripePriceId: priceId, stripeCustomerId: customerId ?? fallbackCustomerId ?? undefined } as any;
+
+  if (userId) {
+    await prisma.user.updateMany({ where: { id: userId }, data });
+    return;
+  }
+  if (customerId || fallbackCustomerId) {
+    await prisma.user.updateMany({ where: { stripeCustomerId: customerId ?? fallbackCustomerId! }, data });
+    return;
+  }
+  await prisma.user.updateMany({ where: { stripeSubscriptionId: subscription.id }, data: { stripeStatus: subscription.status, stripePriceId: priceId } });
+}
 
 export async function POST(req: Request) {
   const body = await req.text();
   const headersList = await headers();
   const signature = headersList.get("stripe-signature");
-
-  if (!signature) {
-    return new NextResponse("Missing stripe signature", { status: 400 });
-  }
+  if (!signature) return new NextResponse("Missing stripe signature", { status: 400 });
 
   let event: Stripe.Event;
-
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err) {
     console.error("[stripe webhook] signature verification failed:", err);
     return new NextResponse("Invalid signature", { status: 400 });
@@ -35,46 +43,21 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-
-        if (session.mode !== "subscription") break;
-        if (!session.customer || !session.subscription) break;
-
-        const customerId = String(session.customer);
-        const subscriptionId = String(session.subscription);
-
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-        await prisma.user.updateMany({
-          where: { stripeCustomerId: customerId },
-          data: {
-            stripeSubscriptionId: subscription.id,
-            stripeStatus: subscription.status,
-            stripePriceId: subscription.items.data[0]?.price.id ?? null,
-          },
-        });
-
+        if (session.mode !== "subscription" || !session.subscription) break;
+        const subscription = await stripe.subscriptions.retrieve(String(session.subscription));
+        await updateUserFromSubscription(subscription, session.customer ? String(session.customer) : null, session.metadata?.userId || session.client_reference_id || null);
         break;
       }
-
+      case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-
-        await prisma.user.updateMany({
-          where: { stripeSubscriptionId: subscription.id },
-          data: {
-            stripeStatus: subscription.status,
-            stripePriceId: subscription.items.data[0]?.price.id ?? null,
-          },
-        });
-
+        await updateUserFromSubscription(subscription);
         break;
       }
-
       default:
         break;
     }
-
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error("[stripe webhook] handler error:", err);

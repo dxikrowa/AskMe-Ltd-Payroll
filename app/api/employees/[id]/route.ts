@@ -49,6 +49,8 @@ export async function GET(_req: Request, context: any) {
       normalWeeklyHours: emp.normalWeeklyHours,
       isStudent: emp.isStudent,
       taxStatus: emp.taxStatus,
+      employmentType: emp.employmentType,
+      hourlyWageCents: emp.hourlyWage,
       includeNI: emp.includeNI,
       under17: emp.under17,
       apprentice: emp.apprentice,

@@ -44,6 +44,16 @@ enum LeaveType {
   OTHER
 }
 
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+}
+
+enum TimesheetEntryType {
+  OVERTIME
+  PART_TIME_HOURS
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -161,6 +171,8 @@ model Employee {
 
   // Optional flags for contributions
   isStudent Boolean @default(false)
+  employmentType EmploymentType @default(FULL_TIME)
+  hourlyWage Int?
 
   // Vacation leave running balance (minutes). Accrues monthly.
   vacationLeaveBalanceMinutes Int       @default(0)
@@ -293,7 +305,9 @@ model TimesheetEntry {
   // Date of the overtime work
   date DateTime
 
-  // Overtime hours (stored as minutes for accuracy)
+  entryType TimesheetEntryType @default(OVERTIME)
+
+  // Hours (stored as minutes for accuracy)
   minutes      Int
   // Optional hourly rate (cents). If null, falls back to employee base wage derived rate.
   rateCents    Int?

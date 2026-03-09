@@ -123,6 +123,8 @@ export default function OrganisationsClient({ organisations }: { organisations: 
     under17: false,
     before1962: false,
     isStudent: false,
+    employmentType: "FULL_TIME",
+    hourlyWage: "",
   });
 
   // clear employee search when switching company
@@ -197,6 +199,8 @@ export default function OrganisationsClient({ organisations }: { organisations: 
     under17: false,
     before1962: false,
     isStudent: false,
+    employmentType: "FULL_TIME",
+    hourlyWage: "",
     });
     setEmployeeModal({ mode: "add", open: true });
   }
@@ -224,6 +228,8 @@ export default function OrganisationsClient({ organisations }: { organisations: 
       under17: !!selectedEmp.under17,
       before1962: !!selectedEmp.before1962,
       isStudent: !!selectedEmp.isStudent,
+      employmentType: selectedEmp.employmentType ?? "FULL_TIME",
+      hourlyWage: selectedEmp.hourlyWage ? ((selectedEmp.hourlyWage ?? 0) / 100).toFixed(2) : "",
     });
     setEmployeeModal({ mode: "edit", open: true });
   }
@@ -468,6 +474,8 @@ export default function OrganisationsClient({ organisations }: { organisations: 
                     </Field>
                     <Field k="Wage Period">{selectedEmp.payFrequency ?? "—"}</Field>
                     <Field k="Tax Status">{taxStatusLabel(selectedEmp.taxStatus)}</Field>
+                    <Field k="Employment Type">{selectedEmp.employmentType === "PART_TIME" ? "Part-time" : "Full-time"}</Field>
+                    <Field k="Hourly Wage">{selectedEmp.hourlyWage ? `€ ${(Number(selectedEmp.hourlyWage) / 100).toFixed(2)}` : "—"}</Field>
                   </div>
                 </div>
               ) : null}
@@ -566,6 +574,18 @@ export default function OrganisationsClient({ organisations }: { organisations: 
               value={employeeForm.normalWeeklyHours}
               onChange={(v) => setEmployeeForm((s) => ({ ...s, normalWeeklyHours: v }))}
             />
+
+            <label style={{ display: "block" }}>
+              <div style={labelStyle}>Employment Type</div>
+              <select value={employeeForm.employmentType} onChange={(e) => setEmployeeForm((s) => ({ ...s, employmentType: e.target.value, hourlyWage: e.target.value === "PART_TIME" ? s.hourlyWage : "" }))} style={inputStyle}>
+                <option value="FULL_TIME">Full-time</option>
+                <option value="PART_TIME">Part-time</option>
+              </select>
+            </label>
+
+            {employeeForm.employmentType === "PART_TIME" ? (
+              <LabeledInput label="Hourly Wage" value={employeeForm.hourlyWage} onChange={(v) => setEmployeeForm((s) => ({ ...s, hourlyWage: v }))} />
+            ) : null}
 
             <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
               <input type="checkbox" checked={employeeForm.under17} onChange={(e) => setEmployeeForm((s) => ({ ...s, under17: e.target.checked }))} />

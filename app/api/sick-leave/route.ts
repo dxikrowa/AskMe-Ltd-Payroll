@@ -31,6 +31,7 @@ export async function POST(req: Request) {
   const startDate = new Date(body.startDate || body.date);
   const endDate = new Date(body.endDate || body.date);
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return NextResponse.json({ error: "Invalid date" }, { status: 400 });
-  const row = await prisma.leaveEntry.create({ data: { organisationId, employeeId, type: "SICK", startDate, endDate, notes: JSON.stringify({ sickDays: Number(body.sickDays ?? 0), hoursPerDay: Number(body.hoursPerDay ?? 8), dailyBenefit: Number(body.dailyBenefit ?? 0), notes: String(body.notes ?? "") }) } });
+  const payType = String(body.payType ?? "FULL_PAY").toUpperCase();
+  const row = await prisma.leaveEntry.create({ data: { organisationId, employeeId, type: "SICK", startDate, endDate, notes: JSON.stringify({ sickDays: Number(body.sickDays ?? 0), hoursPerDay: Number(body.hoursPerDay ?? 8), dailyBenefit: Number(body.dailyBenefit ?? 0), payType: ["FULL_PAY","HALF_PAY","NO_PAY"].includes(payType) ? payType : "FULL_PAY", notes: String(body.notes ?? "") }) } });
   return NextResponse.json({ row });
 }

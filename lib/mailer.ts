@@ -19,3 +19,12 @@ export function getMailer() {
 export function appBaseUrl() {
   return process.env.NEXTAUTH_URL || "http://localhost:3000";
 }
+
+
+export async function sendMail(options: { to: string; subject: string; text?: string; html?: string }) {
+  const mailer = getMailer();
+  if (!mailer) throw new Error("Email server is not configured");
+  const from = process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.EMAIL_SERVER_USER;
+  if (!from) throw new Error("Email sender is not configured");
+  return mailer.sendMail({ from, ...options });
+}

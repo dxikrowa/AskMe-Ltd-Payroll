@@ -147,10 +147,13 @@ export async function createEmployee(data: {
   under17?: boolean;
   before1962?: boolean;
   isStudent?: boolean;
+  employmentType?: "FULL_TIME" | "PART_TIME";
+  hourlyWage?: string;
 }) {
   await requireUser();
 
   const baseWageCents = Math.round(Number(data.baseWage || 0) * 100);
+  const hourlyWageCents = data.hourlyWage ? Math.round(Number(data.hourlyWage || 0) * 100) : null;
 
   const emp = await prisma.employee.create({
     data: {
@@ -175,6 +178,8 @@ export async function createEmployee(data: {
       under17: data.under17 ?? false,
       before1962: data.before1962 ?? false,
       isStudent: data.isStudent ?? false,
+      employmentType: data.employmentType ?? "FULL_TIME",
+      hourlyWage: hourlyWageCents,
     },
   });
 
@@ -204,9 +209,12 @@ export async function updateEmployee(data: {
   under17?: boolean;
   before1962?: boolean;
   isStudent?: boolean;
+  employmentType?: "FULL_TIME" | "PART_TIME";
+  hourlyWage?: string;
 }) {
   await requireUser();
   const baseWageCents = Math.round(Number(data.baseWage || 0) * 100);
+  const hourlyWageCents = data.hourlyWage ? Math.round(Number(data.hourlyWage || 0) * 100) : null;
 
   await prisma.employee.update({
     where: { id: data.id },
@@ -226,6 +234,13 @@ export async function updateEmployee(data: {
       baseWage: Number.isFinite(baseWageCents) ? baseWageCents : 0,
       payFrequency: data.payFrequency ?? "MONTHLY",
       taxStatus: data.taxStatus ?? 1,
+      employmentStartDate: data.employmentStartDate ? new Date(data.employmentStartDate) : undefined,
+      normalWeeklyHours: data.normalWeeklyHours ? Number(data.normalWeeklyHours) : undefined,
+      under17: data.under17 ?? false,
+      before1962: data.before1962 ?? false,
+      isStudent: data.isStudent ?? false,
+      employmentType: data.employmentType ?? "FULL_TIME",
+      hourlyWage: hourlyWageCents,
     },
   });
 

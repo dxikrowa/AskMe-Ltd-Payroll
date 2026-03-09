@@ -192,9 +192,10 @@ function entitlementCycle(employee: any, ref: Date) {
 function baseHoursForPeriod(employee: any, period: Period): number {
   const weekly = Number(employee?.normalWeeklyHours ?? 40);
   const pro = weekly / 40;
+  const override = Number(employee?.partTimeHoursOverride ?? 0);
+  if (employee?.employmentType === "PART_TIME" && override > 0 && period !== "Annual") return override;
   if (period === "Weekly") return weekly;
   if (period === "Annual") return weekly * 52;
-  // Monthly
   return MONTHLY_AVG_HOURS_FULLTIME * pro;
 }
 
@@ -235,6 +236,7 @@ export default function RunPayrollPage() {
   const [employeeForLeave, setEmployeeForLeave] = useState<any>(null);
   const [availablePayslips, setAvailablePayslips] = useState<any[]>([]);
   const [selectedPayslipIds, setSelectedPayslipIds] = useState<string[]>([]);
+  const [pdfActionStatus, setPdfActionStatus] = useState<"idle" | "generating" | "downloading">("idle");
 
   // --------- import employee + org via employeeId query param ----------
   useEffect(() => {
@@ -262,6 +264,7 @@ export default function RunPayrollPage() {
         grossWage: ((emp.baseWageCents ?? 0) / 100).toFixed(2),
         period: emp.payFrequency === "WEEKLY" ? "Weekly" : emp.payFrequency === "ANNUAL" ? "Annual" : "Monthly",
         taxStatus: emp.taxStatus ?? 1,
+        employmentType: emp.employmentType === "PART_TIME" ? "Part_Time" : "Full_Time",
 
         includeNI: Boolean(emp.includeNI),
         under17: Boolean(emp.under17),
@@ -375,169 +378,6 @@ export default function RunPayrollPage() {
   // --------- auto-fill overtime fields from /timesheets (month of pay_period_to) ----------
   useEffect(() => {
     if (!organisationId || !employeeDbId) return;
-    const to = payslipFields.pay_period_to;
-    if (!to) return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const toD = new Date(to);
-        if (Number.isNaN(toD.getTime())) return;
-        const fromD = new Date(toD.getFullYear(), toD.getMonth(), 1);
-        const endD = new Date(toD.getFullYear(), toD.getMonth() + 1, 1);
-
-        const qs = new URLSearchParams({
-          organisationId,
-          employeeId: employeeDbId,
-          from: toIsoDate(fromD),
-          to: toIsoDate(endD),
-        });
-
-        const res = await fetch(`/api/timesheets?${qs.toString()}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled) return;
-
-        const rows: any[] = data.rows ?? [];
-        const overtimeMinutes = rows.reduce((a, r) => a + (Number(r.minutes ?? 0) || 0), 0);
-        const overtimeHours = minutesToHours(overtimeMinutes);
-
-        // Compute overtime pay (cents) using entry rate/multiplier, with fallback to base wage derived hourly.
-        const baseWageCents = Number(employeeForLeave?.baseWageCents ?? 0);
-        const defaultHourlyRateCents = baseWageCents ? Math.round(baseWageCents / 173.33) : 0;
-
-        const overtimeCents = rows.reduce((sum, r) => {
-          const mins = Number(r.minutes ?? 0) || 0;
-          const rate = r.rateCents != null ? Number(r.rateCents) : defaultHourlyRateCents;
-          const mult = (Number(r.multiplierBp ?? 100) || 100) / 100;
-          return sum + Math.round((mins / 60) * rate * mult);
-        }, 0);
-
-        setPayslipFields((p) => ({
-          ...p,
-          // Do NOT add overtime hours to basic pay hours.
-          overtime_15_hours: overtimeMinutes ? overtimeHours.toFixed(2) : "",
-          overtime_15_thispay: overtimeCents ? (overtimeCents / 100).toFixed(2) : "",
-        }));
-      } catch {
-        // ignore
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [organisationId, employeeDbId, employeeForLeave, payslipFields.pay_period_to]);
-
-  // --------- default basic pay hours for live preview (matches /generate behaviour) ----------
-  useEffect(() => {
-    if (!employeeForLeave) return;
-
-    setPayslipFields((p) => {
-      if (p.basicpay_hours != null && String(p.basicpay_hours).trim() !== "") return p;
-      const hrs = baseHoursForPeriod(employeeForLeave, form.period);
-      return { ...p, basicpay_hours: hrs ? hrs.toFixed(2) : "" };
-    });
-  }, [employeeForLeave, form.period]);
-
-  // --------- auto-fill vacation leave fields from /leave/vacation ----------
-  useEffect(() => {
-    if (!autoFillVacationLeave) return;
-    if (!organisationId || !employeeDbId) return;
-    const from = payslipFields.pay_period_from;
-    const to = payslipFields.pay_period_to;
-    if (!from || !to) return;
-
-    let cancelled = false;
-
-    const toHoursStr = (mins: number) => (Math.round((mins / 60) * 100) / 100).toFixed(2);
-
-    (async () => {
-      const qs = new URLSearchParams({ organisationId, employeeId: employeeDbId });
-      const res = await fetch(`/api/vacation-leave?${qs.toString()}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (cancelled) return;
-
-      const rows: any[] = data.rows ?? [];
-
-      const fromD = new Date(from);
-      const toD = new Date(to);
-      // normalize to local midnight
-      const fromMs = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate()).getTime();
-      const toMs = new Date(toD.getFullYear(), toD.getMonth(), toD.getDate()).getTime();
-
-      const cycle = employeeForLeave ? entitlementCycle(employeeForLeave, toD) : null;
-
-      // Carry-forward (only once per entitlement year)
-      let carriedMins = 0;
-      try {
-        const res2 = await fetch(`/api/vacation-leave-carry-forward?${qs.toString()}`, { cache: "no-store" });
-        if (res2.ok) {
-          const data2 = await res2.json();
-          const cfs: any[] = data2.rows ?? [];
-          const cycle2 = employeeForLeave ? entitlementCycle(employeeForLeave, toD) : null;
-          if (cycle2) {
-            const key = cycle2.start.toISOString().slice(0, 10);
-            const match = cfs.find((x) => (x.cycleStart ?? "").toString().slice(0, 10) === key);
-            carriedMins = Number(match?.minutesCarried ?? 0);
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      const minsInPeriod = rows.reduce((acc, r) => {
-        const d = new Date(r.date);
-        const ms = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        if (ms >= fromMs && ms <= toMs) return acc + Number(r.minutesUsed ?? 0);
-        return acc;
-      }, 0);
-
-      const minsInEntitlementYear = rows.reduce((acc, r) => {
-        if (!cycle) return acc + Number(r.minutesUsed ?? 0);
-        const d = new Date(r.date);
-        if (d >= cycle.start && d < cycle.end) return acc + Number(r.minutesUsed ?? 0);
-        return acc;
-      }, 0);
-
-      const entitled = employeeForLeave ? annualEntitlementMinutes(employeeForLeave) : 0;
-      const remaining = Math.max(0, entitled + carriedMins - minsInEntitlementYear);
-
-      // Allocate base wage between Basic Pay and Vacation Leave Pay (VL Pay) for the current pay run.
-      // Total gross remains unchanged; we just move the value + hours to the VL section.
-      const vlHours = Math.round((minsInPeriod / 60) * 100) / 100;
-      const baseHours = employeeForLeave ? baseHoursForPeriod(employeeForLeave, form.period) : 0;
-      const hourlyRate = baseHours > 0 ? gross / baseHours : 0;
-      const vlPay = Math.round(vlHours * hourlyRate * 100) / 100;
-      const basicPayAfterVl = Math.round((gross - vlPay) * 100) / 100;
-      const basicHoursAfterVl = Math.max(0, Math.round((baseHours - vlHours) * 100) / 100);
-
-      setPayslipFields((p) => ({
-        ...p,
-        hours_vlentitled: entitled ? toHoursStr(entitled) : p.hours_vlentitled,
-        // Only show carried-forward if an entry exists for this entitlement year
-        hours_vlfrom: carriedMins ? toHoursStr(carriedMins) : "",
-        hours_vlconsumed: toHoursStr(minsInPeriod),
-        hours_vlremaining: entitled ? toHoursStr(remaining) : p.hours_vlremaining,
-
-        // Hours + pay split for the payslip
-        basicpay_hours: baseHours ? basicHoursAfterVl.toFixed(2) : p.basicpay_hours,
-        vl_pay_hours: vlHours ? vlHours.toFixed(2) : "",
-        // Keep Basic Pay total (base wage) but deduct VL pay, and show VL pay separately.
-        basicpay_thispay: gross ? basicPayAfterVl.toFixed(2) : p.basicpay_thispay,
-        vl_pay_thispay: vlHours ? vlPay.toFixed(2) : "",
-      }));
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [autoFillVacationLeave, organisationId, employeeDbId, employeeForLeave, payslipFields.pay_period_from, payslipFields.pay_period_to, gross, form.period]);
-
-  useEffect(() => {
-    if (!organisationId || !employeeDbId) return;
     const from = payslipFields.pay_period_from;
     const to = payslipFields.pay_period_to;
     if (!from || !to) return;
@@ -555,9 +395,14 @@ export default function RunPayrollPage() {
         const ms = new Date(r.startDate).getTime();
         return ms >= fromMs && ms <= toMs;
       });
-      const sickDays = inPeriod.reduce((a, r) => a + Number(r.meta?.sickDays ?? 0), 0);
       const hoursPerDay = Number(inPeriod[0]?.meta?.hoursPerDay ?? (employeeForLeave?.normalWeeklyHours ? employeeForLeave.normalWeeklyHours / 5 : 8));
-      const sickHours = Math.round(sickDays * hoursPerDay * 100) / 100;
+      const weightedSickDays = inPeriod.reduce((a, r) => {
+        const days = Number(r.meta?.sickDays ?? 0);
+        const payType = String(r.meta?.payType ?? "FULL_PAY");
+        const factor = payType === "HALF_PAY" ? 0.5 : payType === "NO_PAY" ? 0 : 1;
+        return a + days * factor;
+      }, 0);
+      const sickHours = Math.round(weightedSickDays * hoursPerDay * 100) / 100;
       const baseHours = employeeForLeave ? baseHoursForPeriod(employeeForLeave, form.period) : 0;
       const hourlyRate = baseHours > 0 ? gross / baseHours : 0;
       const sickPay = Math.round(sickHours * hourlyRate * 100) / 100;
@@ -637,7 +482,8 @@ export default function RunPayrollPage() {
 
         if (!res.ok) return;
 
-        const blob = await res.blob();
+        setPdfActionStatus("downloading");
+    const blob = await res.blob();
         const url = URL.createObjectURL(blob);
 
         if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
@@ -655,8 +501,10 @@ export default function RunPayrollPage() {
   }, [payslipFields]);
 
   async function generatePdf() {
+    setPdfActionStatus("generating");
     if (!employeeDbId || !organisationId) {
       alert("Import an employee first (from Organisations) so the payslip can be saved.");
+      setPdfActionStatus("idle");
       return;
     }
 
@@ -674,9 +522,11 @@ export default function RunPayrollPage() {
 
     if (!res.ok) {
       alert("Failed to generate payslip PDF.");
+      setPdfActionStatus("idle");
       return;
     }
 
+    setPdfActionStatus("downloading");
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
 
@@ -688,6 +538,7 @@ export default function RunPayrollPage() {
     a.remove();
 
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setPdfActionStatus("idle");
   }
 
   const shownPayslipKeys: (keyof PayslipFields)[] = [
@@ -884,7 +735,7 @@ export default function RunPayrollPage() {
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <Button onClick={generatePdf} variant="primary">
-                  Generate payslip PDF
+                  {pdfActionStatus === "generating" ? "Generating payslip PDF..." : pdfActionStatus === "downloading" ? "Downloading payslip PDF..." : "Generate payslip PDF"}
                 </Button>
               </div>
             </Panel>
