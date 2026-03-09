@@ -1,42 +1,64 @@
 import { NextResponse } from "next/server";
-import path from "path";
-import fs from "fs/promises";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { deletePrivatePdf } from "@/lib/pdf-storage";
 
-export async function DELETE(_req: Request, context: any) {
+export async function DELETE(_req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const params = await context.params;
-  const id = params?.id;
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const { id } = await context.params;
+  if (!id) {
+    return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  }
 
   const payslip = await prisma.payslip.findUnique({
     where: { id },
-    include: { employee: { select: { organisationId: true } } },
+    select: {
+      id: true,
+      pdfPath: true,
+      organisationId: true,
+    },
   });
 
-  if (!payslip) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!payslip) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const member = await prisma.membership.findFirst({
-    where: { userId: user.id, organisationId: payslip.employee.organisationId },
+    where: {
+      userId: user.id,
+      organisationId: payslip.organisationId,
+    },
+    select: { id: true },
   });
-  if (!member) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // Best-effort remove PDF file
+  if (!member) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   if (payslip.pdfPath) {
     try {
-      await fs.unlink(path.join(process.cwd(), payslip.pdfPath));
-    } catch {
-      // ignore
+      await deletePrivatePdf(payslip.pdfPath);
+    } catch (e) {
+      console.error("[payslip delete] failed to remove pdf:", e);
     }
   }
 
-  await prisma.payslip.delete({ where: { id } });
+  await prisma.payslip.delete({
+    where: { id },
+  });
+
   return NextResponse.json({ ok: true });
 }
