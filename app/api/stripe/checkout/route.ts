@@ -52,7 +52,7 @@ export async function POST() {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXTAUTH_URL}/dashboard`,
+      success_url: `${process.env.NEXTAUTH_URL}/dashboard?success=true`,
       cancel_url: `${process.env.NEXTAUTH_URL}/billing`,
     });
 
