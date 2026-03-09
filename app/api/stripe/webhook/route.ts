@@ -1,9 +1,9 @@
+export const runtime = "nodejs";
+
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -11,8 +11,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: Request) {
   const body = await req.text();
-
-  // 🔑 FIX: await headers()
   const headersList = await headers();
   const signature = headersList.get("stripe-signature");
 
@@ -29,7 +27,7 @@ export async function POST(req: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
+    console.error("[stripe webhook] signature verification failed:", err);
     return new NextResponse("Invalid signature", { status: 400 });
   }
 
@@ -39,20 +37,19 @@ export async function POST(req: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.mode !== "subscription") break;
+        if (!session.customer || !session.subscription) break;
 
-        const subscriptionId = session.subscription as string;
-        const customerId = session.customer as string;
+        const customerId = String(session.customer);
+        const subscriptionId = String(session.subscription);
 
-        const subscription = await stripe.subscriptions.retrieve(
-          subscriptionId
-        );
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
         await prisma.user.updateMany({
           where: { stripeCustomerId: customerId },
           data: {
             stripeSubscriptionId: subscription.id,
             stripeStatus: subscription.status,
-            stripePriceId: subscription.items.data[0].price.id,
+            stripePriceId: subscription.items.data[0]?.price.id ?? null,
           },
         });
 
@@ -67,17 +64,20 @@ export async function POST(req: Request) {
           where: { stripeSubscriptionId: subscription.id },
           data: {
             stripeStatus: subscription.status,
-            stripePriceId: subscription.items.data[0].price.id,
+            stripePriceId: subscription.items.data[0]?.price.id ?? null,
           },
         });
 
         break;
       }
+
+      default:
+        break;
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("Webhook handler error:", err);
+    console.error("[stripe webhook] handler error:", err);
     return new NextResponse("Webhook handler error", { status: 500 });
   }
 }
