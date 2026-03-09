@@ -577,7 +577,17 @@ export default function OrganisationsClient({ organisations }: { organisations: 
 
             <label style={{ display: "block" }}>
               <div style={labelStyle}>Employment Type</div>
-              <select value={employeeForm.employmentType} onChange={(e) => setEmployeeForm((s) => ({ ...s, employmentType: e.target.value, hourlyWage: e.target.value === "PART_TIME" ? s.hourlyWage : "" }))} style={inputStyle}>
+              <select
+                value={employeeForm.employmentType}
+                onChange={(e) =>
+                  setEmployeeForm((s) => ({
+                    ...s,
+                    employmentType: e.target.value as "FULL_TIME" | "PART_TIME",
+                    hourlyWage: e.target.value === "PART_TIME" ? s.hourlyWage : "",
+                  }))
+                }
+                style={inputStyle}
+              >
                 <option value="FULL_TIME">Full-time</option>
                 <option value="PART_TIME">Part-time</option>
               </select>
