@@ -8,7 +8,7 @@ import { PDFDocument } from "pdf-lib";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertOrgAccess, centsToEuroInt, fillTextFields, fillTextFieldsRight, toCents, formatDateDDMMYYYY } from "@/lib/fss";
+import { assertOrgAccess, centsToEuroInt, fillTextFields, fillTextFieldsRight, toCents, formatDateDDMMYYYY, splitEuroCents, centsToEuro } from "@/lib/fss";
 
 type Body = {
   organisationId: string;
@@ -93,6 +93,11 @@ export async function POST(req: Request) {
   const ftTax = sum((m) => m.ftTaxCents);
   const ptTax = sum((m) => m.ptTaxCents);
 
+  const ni = sum((m) => m.niCents);
+  const maternity = sum((m) => m.maternityCents);
+  const niParts = splitEuroCents(ni);
+  const matParts = splitEuroCents(maternity);
+
   const baseGross = sum((m) => m.grossCents);
   const overtime = sum((m) => m.overtimeCents);
   const gross = baseGross + overtime;
@@ -100,13 +105,14 @@ export async function POST(req: Request) {
   const ftGrossBase = sum((m) => Math.max(0, m.ftGrossCents - m.ftOvertimeCents));
   const ptGrossBase = sum((m) => Math.max(0, m.ptGrossCents - m.ptOvertimeCents));
 
-  const yearStart = new Date(Date.UTC(body.year, 0, 1, 0, 0, 0));
-  const yearEnd = new Date(Date.UTC(body.year + 1, 0, 1, 0, 0, 0));
-  const empRows = await prisma.payslip.findMany({
-    where: { organisationId: body.organisationId, createdAt: { gte: yearStart, lt: yearEnd } },
-    select: { employeeId: true },
+  // Dynamically count exact number of FS3 forms generated in the DB for the given year
+  const fs3count = await prisma.fssForm.count({
+    where: {
+      organisationId: body.organisationId,
+      type: "FS3",
+      year: body.year,
+    },
   });
-  const fs3count = new Set(empRows.map((r) => r.employeeId)).size;
 
   const templatePath = path.join(process.cwd(), "templates", "fs7_form.pdf");
   const templateBytes = await fs.readFile(templatePath);
@@ -128,7 +134,11 @@ export async function POST(req: Request) {
     principal_full_name: body.principalFullName ?? "",
     principal_position: body.principalPosition ?? "",
     principal_signature: body.principalSignature ?? "",
+    
+    // Multiple variants to robustly hit Box B depending on PDF parsing
     employee_number_fs3: String(fs3count || ""),
+    number_of_fs3s: String(fs3count || ""),
+    fs3_issued: String(fs3count || ""),
     
     gross_emoluments: centsToEuroInt(gross),
     gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
@@ -141,12 +151,20 @@ export async function POST(req: Request) {
     tax_arrears_deductions: "0",
     total_tax_deductions: centsToEuroInt(tax),
     
+    // E1 and E2 standard mappings
+    E1: centsToEuro(ni),
+    E2: centsToEuro(maternity),
+    e1_euro: niParts.euro, e1_cents: niParts.cents,
+    E1_euro: niParts.euro, E1_cents: niParts.cents,
+    e2_euro: matParts.euro, e2_cents: matParts.cents,
+    E2_euro: matParts.euro, E2_cents: matParts.cents,
+
     childcare_amount: body.childcare?.amount ?? "",
     childcare_employee_number: body.childcare?.employees ?? "",
     shareoptions_amount: body.shareOptions?.amount ?? "",
     shareoptions_employee_number: body.shareOptions?.employees ?? "",
 
-    // Write "X" inside the new text fields created on the PDF instead of using checkboxes
+    // Handles the new text-based checkboxes
     childcare_yes: childcareAns === "yes" ? "X" : "",
     childcare_no: childcareAns === "no" ? "X" : "",
     shareoptions_yes: shareAns === "yes" ? "X" : "",
@@ -164,7 +182,18 @@ export async function POST(req: Request) {
     tax_deductions_overtime: "0",
     tax_arrears_deductions: "0",
     total_tax_deductions: centsToEuroInt(tax),
+    
     employee_number_fs3: String(fs3count || ""),
+    number_of_fs3s: String(fs3count || ""),
+    fs3_issued: String(fs3count || ""),
+
+    E1: centsToEuro(ni),
+    E2: centsToEuro(maternity),
+    e1_euro: niParts.euro, e1_cents: niParts.cents,
+    E1_euro: niParts.euro, E1_cents: niParts.cents,
+    e2_euro: matParts.euro, e2_cents: matParts.cents,
+    E2_euro: matParts.euro, E2_cents: matParts.cents,
+    
     text_8frhv: formatDateDDMMYYYY(body.date ?? ""),
   };
   fillTextFieldsRight(form, rightFields);

@@ -159,7 +159,7 @@ export default function PdfPreview({ url, maxPages, width }: Props) {
           />
           {errorMsg ? (
             <div style={{ marginTop: 8, fontSize: 12, opacity: 0.65 }}>
-              Canvas preview was unavailable, so the browser PDF viewer was used instead.
+              
             </div>
           ) : null}
         </div>

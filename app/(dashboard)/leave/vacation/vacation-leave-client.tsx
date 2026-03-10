@@ -129,7 +129,7 @@ export default function VacationLeaveClient({ organisations }: { organisations: 
   return (
     <div style={{ padding: 24 }}>
       <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>Vacation Leave</div>
-      <div style={{ opacity: 0.75, marginBottom: 14 }}>Record vacation leave used. Payslip generator will use entries within the pay period.</div>
+      <div style={{ opacity: 0.75, marginBottom: 14 }}>Record vacation leave used.</div>
 
       <div style={panel}>
         <div style={sectionTitle}>Selection</div>

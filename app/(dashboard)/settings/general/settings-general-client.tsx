@@ -17,14 +17,14 @@ export default function SettingsGeneralClient() {
           <label style={{ display: "grid", gap: 6 }}>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Choose theme</div>
             <select value={theme} onChange={(e) => setTheme(e.target.value as ThemeId)} style={input as any}>
-              <option value="dark">Dark (default)</option>
+              <option value="dark">Dark</option>
               <option value="modern">Modern</option>
-              <option value="brand">Brand (marketing match)</option>
+              <option value="brand">Brand</option>
             </select>
           </label>
 
           <div style={{ opacity: 0.75, fontSize: 13 }}>
-            Tip: this is saved on this device (localStorage).
+            
           </div>
         </div>
       </div>

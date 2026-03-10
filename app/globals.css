@@ -44,6 +44,10 @@
   /* Dropdown menus (native <select>) */
   --dropdown-bg: #101826;
   --dropdown-border: rgba(255,255,255,0.14);
+
+  /* Scrollbars */
+  --scrollbar: rgba(255, 255, 255, 0.15);
+  --scrollbar-hover: rgba(255, 255, 255, 0.25);
 }
 
 /* Marketing page anchors */
@@ -95,6 +99,10 @@ html { scroll-behavior: smooth; }
 
   --dropdown-bg: #ffffff;
   --dropdown-border: rgba(15,23,42,0.14);
+
+  /* Scrollbars */
+  --scrollbar: rgba(15, 23, 42, 0.15);
+  --scrollbar-hover: rgba(15, 23, 42, 0.25);
 }
 
 /* Make native select dropdowns readable in dark theme (Chrome/Safari/Edge) */
@@ -157,6 +165,10 @@ body {
 
   --dropdown-bg: #0b1220;
   --dropdown-border: rgba(255,255,255,0.18);
+
+  /* Scrollbars */
+  --scrollbar: rgba(255, 255, 255, 0.15);
+  --scrollbar-hover: rgba(255, 255, 255, 0.25);
 }
 
 /* ---------------------------
@@ -489,4 +501,24 @@ button:hover, .mk-btn:hover {
 }
 button:active, .mk-btn:active {
   transform: translateY(0);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
 }
