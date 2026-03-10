@@ -137,7 +137,8 @@ export async function POST(req: Request) {
     period_from: formatDateDDMMYYYY(body.periodFrom ?? `01/01/${body.year}`),
     period_to: formatDateDDMMYYYY(body.periodTo ?? `31/12/${body.year}`),
 
-    gross_emoluments_fulltime: centsToEuroInt(grossExcludingOvertime),
+    gross_emoluments_fulltime: employee.employmentType === "PART_TIME" ? "0" : centsToEuroInt(grossExcludingOvertime),
+    gross_emoluments_parttime: employee.employmentType === "PART_TIME" ? centsToEuroInt(grossExcludingOvertime) : "0",
     overtime: centsToEuroInt(overtimeCents),
     overtime_hours: otH,
     overtime_hours_decimal: otDec ?? "00",
@@ -147,7 +148,8 @@ export async function POST(req: Request) {
     // Total should reflect the *actual* total gross (already includes overtime in payslips)
     total_gross_emoluments_fringebenefits: centsToEuroInt(gross),
 
-    tax_deductions_fulltime: centsToEuroInt(tax),
+    tax_deductions_fulltime: employee.employmentType === "PART_TIME" ? "0" : centsToEuroInt(tax),
+    tax_deductions_parttime: employee.employmentType === "PART_TIME" ? centsToEuroInt(tax) : "0",
     tax_deductions_overtime: "0",
     tax_deductions_parttime: "0",
     tax_arrears_deduction: "0",

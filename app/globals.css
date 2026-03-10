@@ -478,3 +478,15 @@ body {
   .mk-reveal { transform: none !important; opacity: 1 !important; transition: none !important; }
   .mk-btn, .mk-card, .mk-feature, .mk-usecase, .mk-mediaFrame, .mk-chip { transition: none !important; }
 }
+
+/* Global Button Hover Animations */
+button, .mk-btn {
+  transition: filter 0.2s ease, transform 0.2s ease !important;
+}
+button:hover, .mk-btn:hover {
+  filter: brightness(0.92);
+  transform: translateY(-1px);
+}
+button:active, .mk-btn:active {
+  transform: translateY(0);
+}

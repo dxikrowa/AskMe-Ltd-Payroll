@@ -585,6 +585,11 @@ export default function RunPayrollPage() {
               <Field label="Gross wage">
                 <Input value={form.grossWage} onChange={(v) => setForm((s) => ({ ...s, grossWage: v }))} placeholder="Gross Wage" />
               </Field>
+              {form.employmentType === "Part_Time" && employeeForLeave?.hourlyWageCents ? (
+                <div style={{ fontSize: 13, color: "var(--text)", opacity: 0.8, gridColumn: "1 / -1", padding: "8px 12px", background: "var(--toggle-on-bg)", borderRadius: 8 }}>
+                  Hourly Wage configured: <strong>€{(employeeForLeave.hourlyWageCents / 100).toFixed(2)}</strong>/hr
+                </div>
+              ) : null}
 
               <Field label="Period">
                 <Select

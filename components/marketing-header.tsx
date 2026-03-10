@@ -1,3 +1,4 @@
+import Image from "next/image";
 
 "use client";
 
@@ -13,7 +14,7 @@ export default function MarketingHeader() {
   return <header style={{ position:"sticky", top:0, zIndex:50, background:"rgba(255,255,255,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid #e5e7eb" }}>
     <div style={{ maxWidth:1200, margin:"0 auto", padding:"14px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
       <Link href="/" style={{ display:"flex", flexDirection:"column", textDecoration:"none", color:"#0f172a" }}>
-        <span style={{ fontWeight:900, fontSize:18 }}>AskMe Payroll</span>
+        <Image src="/askmeltdbluelionpayroll.png" alt="AskMe Logo" width={32} height={32} style={{ objectFit: "contain", marginBottom: -4 }} /> <span style={{ fontWeight:900, fontSize:18 }}>AskMe Payroll</span>
         <span style={{ fontSize:12, color:"#64748b" }}>Payroll SaaS for Malta</span>
       </Link>
       <nav style={{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>

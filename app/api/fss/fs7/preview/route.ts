@@ -93,6 +93,10 @@ export async function POST(req: Request) {
   const baseGross = sum((m) => m.grossCents);
   const overtime = Object.values(months).reduce((a, v) => a + (Number((v as any).overtimeCents ?? 0) || 0), 0);
   const gross = baseGross + overtime;
+  const ftGrossBase = sum((m) => Math.max(0, (m.ftGrossCents || m.grossCents) - (m.ftOvertimeCents || m.overtimeCents || 0)));
+  const ptGrossBase = sum((m) => Math.max(0, (m.ptGrossCents || 0) - (m.ptOvertimeCents || 0)));
+  const ftTax = sum((m) => m.ftTaxCents || m.taxCents);
+  const ptTax = sum((m) => m.ptTaxCents || 0);
 
   // Number of FS3s issued: count distinct employees with at least one payslip in the year
   const yearStart = new Date(Date.UTC(body.year, 0, 1, 0, 0, 0));
@@ -127,10 +131,12 @@ export async function POST(req: Request) {
     // Some FS7 templates expose both a "gross emoluments" box and a separate "total" box.
     // Fill both to be robust across template variants.
     gross_emoluments: centsToEuroInt(gross),
-    gross_emoluments_fulltime: centsToEuroInt(baseGross),
+    gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
+    gross_emoluments_parttime: centsToEuroInt(ptGrossBase),
     total_gross_emoluments: centsToEuroInt(gross),
     overtime_amount: centsToEuroInt(overtime),
-    tax_deductions_fulltime: centsToEuroInt(tax),
+    tax_deductions_fulltime: centsToEuroInt(ftTax),
+    tax_deductions_parttime: centsToEuroInt(ptTax),
     tax_deductions_overtime: "0",
     tax_deductions_parttime: "0",
     tax_arrears_deductions: "0",
@@ -144,10 +150,12 @@ export async function POST(req: Request) {
   // Right-fill numeric / comb fields (amount boxes)
   const rightFields: Record<string, any> = {
     gross_emoluments: centsToEuroInt(gross),
-    gross_emoluments_fulltime: centsToEuroInt(baseGross),
+    gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
+    gross_emoluments_parttime: centsToEuroInt(ptGrossBase),
     total_gross_emoluments: centsToEuroInt(gross),
     overtime_amount: centsToEuroInt(overtime),
-    tax_deductions_fulltime: centsToEuroInt(tax),
+    tax_deductions_fulltime: centsToEuroInt(ftTax),
+    tax_deductions_parttime: centsToEuroInt(ptTax),
     tax_deductions_overtime: "0",
     tax_deductions_parttime: "0",
     tax_arrears_deductions: "0",
@@ -164,6 +172,13 @@ export async function POST(req: Request) {
 
   fillCheckboxes(form, {
     paid_childcare_yes: String(body.childcare?.answer ?? "").toLowerCase() === "yes",
+    paid_childcare_no: String(body.childcare?.answer ?? "").toLowerCase() === "no",
+    shareoptions_yes: String(body.shareOptions?.answer ?? "").toLowerCase() === "yes",
+    shareoptions_no: String(body.shareOptions?.answer ?? "").toLowerCase() === "no",
+    "Check Box1": String(body.childcare?.answer ?? "").toLowerCase() === "yes",
+    "Check Box2": String(body.childcare?.answer ?? "").toLowerCase() === "no",
+    "Check Box3": String(body.shareOptions?.answer ?? "").toLowerCase() === "yes",
+    "Check Box4": String(body.shareOptions?.answer ?? "").toLowerCase() === "no",
     paid_childcare_no: String(body.childcare?.answer ?? "").toLowerCase() === "no",
     shareoptions_yes: String(body.shareOptions?.answer ?? "").toLowerCase() === "yes",
     shareoptions_no: String(body.shareOptions?.answer ?? "").toLowerCase() === "no",

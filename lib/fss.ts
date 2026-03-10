@@ -76,41 +76,17 @@ export function fillTextFieldsRight(form: any, fields: Record<string, any>) {
 export function fillCheckboxes(form: any, checks: Record<string, boolean>) {
   for (const [key, val] of Object.entries(checks || {})) {
     try {
-      // Some PDFs expose these as checkboxes; others as generic button fields.
-      // Be defensive so FS7 yes/no boxes reliably tick.
-      const cb = (typeof form.getCheckBox === "function" ? form.getCheckBox(key) : null) as any;
-      if (cb && typeof cb.check === "function") {
-        if (val) cb.check();
-        else cb.uncheck();
-        continue;
+      const field = form.getField(key);
+      if (!field) continue;
+      if (field.constructor.name.includes("CheckBox")) {
+        if (val) field.check(); else field.uncheck();
+      } else {
+        if (val) {
+          const onVal = field.acroField.getOnValue?.();
+          field.acroField.setValue(onVal ?? "Yes");
+        } else { field.acroField.setValue("Off"); }
       }
-
-      const field = (typeof form.getField === "function" ? form.getField(key) : null) as any;
-      if (field && typeof field.check === "function") {
-        if (val) field.check();
-        else if (typeof field.uncheck === "function") field.uncheck();
-        continue;
-      }
-
-      // Fallback: many FSS templates use /Btn fields with a non-standard ON value like "Yes_xxxx".
-      // pdf-lib usually exposes this via acroField.getOnValue().
-      if (field && typeof field.acroField?.setValue === "function") {
-        if (!val) {
-          field.acroField.setValue("Off");
-          continue;
-        }
-
-        let on: any = null;
-        if (typeof field.acroField?.getOnValue === "function") {
-          on = field.acroField.getOnValue();
-        }
-
-        // If we couldn't detect it, try the common default.
-        field.acroField.setValue(on ?? "Yes");
-      }
-    } catch {
-      // ignore
-    }
+    } catch { }
   }
 }
 

@@ -12,17 +12,34 @@ async function updateUserFromSubscription(subscription: Stripe.Subscription, fal
   const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
   const userId = subscription.metadata?.userId || fallbackUserId || undefined;
   const priceId = subscription.items.data[0]?.price.id ?? null;
-  const data = { stripeSubscriptionId: subscription.id, stripeStatus: subscription.status, stripePriceId: priceId, stripeCustomerId: customerId ?? fallbackCustomerId ?? undefined } as any;
+  
+  const data = { 
+    stripeSubscriptionId: subscription.id, 
+    stripeStatus: subscription.status, 
+    stripePriceId: priceId, 
+    stripeCustomerId: customerId ?? fallbackCustomerId ?? undefined 
+  } as any;
 
-  if (userId) {
-    await prisma.user.updateMany({ where: { id: userId }, data });
-    return;
+  try {
+    if (userId) {
+      await prisma.user.update({ where: { id: userId }, data });
+      return;
+    }
+    const cId = customerId ?? fallbackCustomerId;
+    if (cId) {
+      const u = await prisma.user.findFirst({ where: { stripeCustomerId: cId } });
+      if (u) {
+        await prisma.user.update({ where: { id: u.id }, data });
+        return;
+      }
+    }
+    const uSub = await prisma.user.findFirst({ where: { stripeSubscriptionId: subscription.id } });
+    if (uSub) {
+      await prisma.user.update({ where: { id: uSub.id }, data });
+    }
+  } catch (err) {
+    console.error("Failed to update user subscription status in DB", err);
   }
-  if (customerId || fallbackCustomerId) {
-    await prisma.user.updateMany({ where: { stripeCustomerId: customerId ?? fallbackCustomerId! }, data });
-    return;
-  }
-  await prisma.user.updateMany({ where: { stripeSubscriptionId: subscription.id }, data: { stripeStatus: subscription.status, stripePriceId: priceId } });
 }
 
 export async function POST(req: Request) {

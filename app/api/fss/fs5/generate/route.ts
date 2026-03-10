@@ -52,7 +52,14 @@ export async function POST(req: Request) {
     },
   });
 
-  const gross = payslips.reduce((a, p) => a + p.grossCents, 0);
+  let ftGross = 0, ptGross = 0, ftTax = 0, ptTax = 0, ftOvertime = 0, ptOvertime = 0;
+  const ftPayees = new Set<string>(); const ptPayees = new Set<string>();
+  for (const p of payslips) {
+    const isPT = p.employee?.employmentType === "PART_TIME";
+    if (isPT) { ptGross+=p.grossCents; ptTax+=p.taxCents; ptOvertime+=(p.overtimeCents||0); ptPayees.add(p.employeeId); }
+    else { ftGross+=p.grossCents; ftTax+=p.taxCents; ftOvertime+=(p.overtimeCents||0); ftPayees.add(p.employeeId); }
+  }
+  const gross = ftGross + ptGross; const tax = ftTax + ptTax; const overtimeCents = ftOvertime + ptOvertime; const payees = ftPayees.size + ptPayees.size;
   const tax = payslips.reduce((a, p) => a + p.taxCents, 0);
   const ni = payslips.reduce((a, p) => a + p.niCents, 0);
   const payees = new Set(payslips.map((p) => p.employeeId)).size;
@@ -71,7 +78,7 @@ export async function POST(req: Request) {
       sourceFssFormIds: [],
       data: {
         ...body,
-        grossCents: gross,
+        grossCents: gross, ftGrossCents: ftGross, ptGrossCents: ptGross, taxCents: tax, ftTaxCents: ftTax, ptTaxCents: ptTax, ftOvertimeCents: ftOvertime, ptOvertimeCents: ptOvertime,
         taxCents: tax,
         niCents: ni,
         maternityCents: maternity,

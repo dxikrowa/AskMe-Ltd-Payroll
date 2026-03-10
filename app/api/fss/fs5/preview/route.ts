@@ -57,7 +57,15 @@ export async function POST(req: Request) {
     select: { grossCents: true, taxCents: true, niCents: true, employeeId: true, overtimeCents: true, maternityFundCents: true },
   });
 
-  const gross = payslips.reduce((a, p) => a + p.grossCents, 0);
+  let ftGross = 0, ptGross = 0, ftTax = 0, ptTax = 0, ftOvertime = 0, ptOvertime = 0;
+  const ftPayees = new Set<string>(); const ptPayees = new Set<string>();
+  for (const p of payslips) {
+    const isPT = p.employee?.employmentType === "PART_TIME";
+    if (isPT) { ptGross+=p.grossCents; ptTax+=p.taxCents; ptOvertime+=(p.overtimeCents||0); ptPayees.add(p.employeeId); }
+    else { ftGross+=p.grossCents; ftTax+=p.taxCents; ftOvertime+=(p.overtimeCents||0); ftPayees.add(p.employeeId); }
+  }
+  const gross = ftGross + ptGross; const tax = ftTax + ptTax; const overtimeCents = ftOvertime + ptOvertime; const payees = ftPayees.size + ptPayees.size;
+  const ftGrossBase = Math.max(0, ftGross - ftOvertime); const ptGrossBase = Math.max(0, ptGross - ptOvertime);
   const tax = payslips.reduce((a, p) => a + p.taxCents, 0);
   const ni = payslips.reduce((a, p) => a + p.niCents, 0);
   const overtimeCents = payslips.reduce((a, p) => a + (p.overtimeCents ?? 0), 0);
@@ -92,16 +100,18 @@ export async function POST(req: Request) {
     pe_number: org.peNumber ?? "",
     // Comb field expects MMYYYY (digits only)
     payment_formonth: formatMonthMMYYYY(body.paymentMonth ?? ""),
-    no_of_payees_fulltime: String(payees),
+    no_of_payees_fulltime: String(ftPayees.size || ""), no_of_payees_parttime: String(ptPayees.size || ""),
     no_of_payees_parttime: "",
     // amounts are applied via fillTextFieldsRight below
-    gross_emoluments_fulltime: centsToEuroInt(grossExcludingOvertime),
+    gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
+    gross_emoluments_parttime: centsToEuroInt(ptGrossBase),
     overtime: centsToEuroInt(overtimeCents),
     gross_emoluments_parttime: "0",
     fringe_benefits: "0",
     // Total should reflect the *actual* total gross (already includes overtime in payslips)
     total_gross_emoluments: centsToEuroInt(gross),
-    tax_deductions_fulltime: centsToEuroInt(tax),
+    tax_deductions_fulltime: centsToEuroInt(ftTax),
+    tax_deductions_parttime: centsToEuroInt(ptTax),
     tax_deductions_overtime: "0",
     tax_deductions_parttime: "0",
     tax_arrears_deductions: "0",

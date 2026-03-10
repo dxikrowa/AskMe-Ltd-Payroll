@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { panel, sectionTitle, input, primaryBtn, dangerBtn } from "@/components/styles";
 
 type Employee = { id: string; firstName?: string | null; lastName?: string | null; name?: string | null };
 type SickLeaveRow = { id: string; startDate: string; meta?: any; employee?: { firstName?: string | null; lastName?: string | null; name?: string | null } | null };
@@ -12,6 +13,7 @@ export default function SickLeaveClient({ orgId, employees }: { orgId: string; e
   const [form, setForm] = useState<FormState>({ date: new Date().toISOString().slice(0, 10), sickDays: "1", hoursPerDay: "8", payType: "FULL_PAY", notes: "" });
 
   useEffect(() => { setEmployeeId((prev) => employees.find((e) => e.id === prev)?.id ?? employees[0]?.id ?? ""); }, [employees, orgId]);
+  
   async function load() {
     const qs = new URLSearchParams({ organisationId: orgId, employeeId });
     const res = await fetch(`/api/sick-leave?${qs.toString()}`);
@@ -19,6 +21,7 @@ export default function SickLeaveClient({ orgId, employees }: { orgId: string; e
     setRows(Array.isArray(data.rows) ? data.rows : []);
   }
   useEffect(() => { void load(); }, [orgId, employeeId]);
+  
   async function addEntry() {
     const res = await fetch("/api/sick-leave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organisationId: orgId, employeeId, date: form.date, sickDays: Number(form.sickDays), hoursPerDay: Number(form.hoursPerDay), payType: form.payType, notes: form.notes }) });
     if (!res.ok) { const error = await res.json().catch(() => ({})); alert(error?.error ?? "Failed"); return; }
@@ -30,19 +33,40 @@ export default function SickLeaveClient({ orgId, employees }: { orgId: string; e
     if (!res.ok) { const error = await res.json().catch(() => ({})); alert(error?.error ?? "Failed"); return; }
     await load();
   }
+  
   const employeeLabel = (employee: Employee) => [employee.firstName, employee.lastName].filter(Boolean).join(" ").trim() || employee.name || "Employee";
   const rowEmployeeLabel = (row: SickLeaveRow) => [row.employee?.firstName, row.employee?.lastName].filter(Boolean).join(" ").trim() || row.employee?.name || "Employee";
   const payTypeLabel = (v: string) => v === "HALF_PAY" ? "Half-pay" : v === "NO_PAY" ? "No pay" : "Full-pay";
 
-  return <div className="space-y-6">
-    <div className="rounded-lg border bg-white p-4 shadow-sm"><h2 className="mb-4 text-lg font-semibold">Add Sick Leave</h2><div className="grid gap-4 md:grid-cols-2">
-      <div><label className="mb-1 block text-sm font-medium">Employee</label><select className="w-full rounded-md border px-3 py-2" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employeeLabel(employee)}</option>)}</select></div>
-      <div><label className="mb-1 block text-sm font-medium">Date</label><input type="date" className="w-full rounded-md border px-3 py-2" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} /></div>
-      <div><label className="mb-1 block text-sm font-medium">Sick Days</label><input type="number" min="1" step="1" className="w-full rounded-md border px-3 py-2" value={form.sickDays} onChange={(e) => setForm((prev) => ({ ...prev, sickDays: e.target.value }))} /></div>
-      <div><label className="mb-1 block text-sm font-medium">Hours Per Day</label><input type="number" min="0" step="0.01" className="w-full rounded-md border px-3 py-2" value={form.hoursPerDay} onChange={(e) => setForm((prev) => ({ ...prev, hoursPerDay: e.target.value }))} /></div>
-      <div><label className="mb-1 block text-sm font-medium">Pay Type</label><select className="w-full rounded-md border px-3 py-2" value={form.payType} onChange={(e) => setForm((prev) => ({ ...prev, payType: e.target.value as FormState['payType'] }))}><option value="FULL_PAY">Full-pay</option><option value="HALF_PAY">Half-pay</option><option value="NO_PAY">No pay</option></select></div>
-      <div className="md:col-span-2"><label className="mb-1 block text-sm font-medium">Notes</label><textarea className="w-full rounded-md border px-3 py-2" rows={3} value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} /></div>
-    </div><div className="mt-4"><button type="button" onClick={addEntry} className="rounded-md border px-4 py-2">Add Sick Leave</button></div></div>
-    <div className="rounded-lg border bg-white p-4 shadow-sm"><h2 className="mb-4 text-lg font-semibold">Sick Leave Entries</h2><div className="overflow-x-auto"><table className="min-w-full border-collapse text-sm"><thead><tr className="border-b text-left"><th className="px-3 py-2">Employee</th><th className="px-3 py-2">Date</th><th className="px-3 py-2">Days</th><th className="px-3 py-2">Hours/Day</th><th className="px-3 py-2">Pay Type</th><th className="px-3 py-2">Notes</th><th className="px-3 py-2">Action</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id} className="border-b"><td className="px-3 py-2">{rowEmployeeLabel(row)}</td><td className="px-3 py-2">{new Date(row.startDate).toISOString().slice(0,10)}</td><td className="px-3 py-2">{row.meta?.sickDays ?? 0}</td><td className="px-3 py-2">{row.meta?.hoursPerDay ?? 0}</td><td className="px-3 py-2">{payTypeLabel(String(row.meta?.payType ?? 'FULL_PAY'))}</td><td className="px-3 py-2">{row.meta?.notes ?? ''}</td><td className="px-3 py-2"><button className="rounded-md border px-3 py-1" onClick={() => deleteEntry(row.id)}>Delete</button></td></tr>)}</tbody></table></div></div>
-  </div>;
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={panel}>
+        <div style={sectionTitle}>Add Sick Leave</div>
+        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Employee</div><select style={input as any} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employeeLabel(employee)}</option>)}</select></label>
+          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Date</div><input type="date" style={input} value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} /></label>
+          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Sick Days</div><input type="number" min="1" step="1" style={input} value={form.sickDays} onChange={(e) => setForm((prev) => ({ ...prev, sickDays: e.target.value }))} /></label>
+          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Hours Per Day</div><input type="number" min="0" step="0.01" style={input} value={form.hoursPerDay} onChange={(e) => setForm((prev) => ({ ...prev, hoursPerDay: e.target.value }))} /></label>
+          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Pay Type</div><select style={input as any} value={form.payType} onChange={(e) => setForm((prev) => ({ ...prev, payType: e.target.value as FormState['payType'] }))}><option value="FULL_PAY">Full-pay</option><option value="HALF_PAY">Half-pay</option><option value="NO_PAY">No pay</option></select></label>
+          <label style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Notes</div><input style={input as any} value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} /></label>
+        </div>
+        <button type="button" onClick={addEntry} style={{ ...primaryBtn, marginTop: 14 }}>Add Sick Leave</button>
+      </div>
+
+      <div style={panel}>
+        <div style={sectionTitle}>Sick Leave Entries</div>
+        {rows.length === 0 ? <div style={{ opacity: 0.7, fontSize: 14 }}>No sick leave entries yet.</div> : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {rows.map((row) => (
+              <div key={row.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                <div style={{ minWidth: 110, fontWeight: 800 }}>{new Date(row.startDate).toISOString().slice(0,10)}</div>
+                <div style={{ flex: 1, opacity: 0.85 }}>{rowEmployeeLabel(row)} — {row.meta?.sickDays ?? 0} days ({payTypeLabel(String(row.meta?.payType ?? 'FULL_PAY'))}) {row.meta?.notes ? ` — ${row.meta.notes}` : ""}</div>
+                <button style={dangerBtn} onClick={() => deleteEntry(row.id)}>Delete</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
