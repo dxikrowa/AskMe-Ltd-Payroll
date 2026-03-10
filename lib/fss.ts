@@ -66,6 +66,8 @@ export function fillCheckboxes(form: any, checks: Record<string, boolean>) {
       const type = field.constructor.name;
       if (type.includes("CheckBox")) {
         if (val) field.check(); else field.uncheck();
+      } else if (type.includes("TextField")) {
+        field.setText(val ? "X" : ""); // Handle text-based pseudo-checkboxes
       } else if (type.includes("RadioGroup") || type.includes("OptionList")) {
         if (val) {
           const options = field.getOptions();

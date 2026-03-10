@@ -36,14 +36,12 @@ function calcProgressiveTax(annualValue: number, status: number) {
 export function calculateMaltaPayroll(input: {
   grossWage: number;
   period: Period;
-  taxStatus: number; // 1-7
+  taxStatus: number;
   employmentType: EmploymentType;
-
   includeAllowance1: boolean;
   includeAllowance2: boolean;
   includeBonus1: boolean;
   includeBonus2: boolean;
-
   includeNI: boolean;
   under17: boolean;
   apprentice: boolean;
@@ -51,8 +49,6 @@ export function calculateMaltaPayroll(input: {
 }) {
   const { annual: annualGross, divisor } = toAnnual(input.grossWage, input.period);
 
-  // These allowances/bonuses are treated as one-off amounts for the current pay run
-  // (e.g. March allowance, statutory bonus in the relevant month).
   const allowanceThisPeriod =
     (input.includeAllowance1 ? WEEKLY_ALLOWANCE : 0) +
     (input.includeAllowance2 ? WEEKLY_ALLOWANCE_2 : 0);
@@ -61,18 +57,10 @@ export function calculateMaltaPayroll(input: {
     (input.includeBonus1 ? STATUTORY_BONUS : 0) +
     (input.includeBonus2 ? STATUTORY_BONUS_2 : 0);
 
-  // One-off amounts happen once in the year (in the current pay run).
-  // For annual comparisons we add them once.
   const taxableIncome = annualGross + allowanceThisPeriod + bonusThisPeriod;
 
-  // TAX
-  // We compute:
-  // 1) base annual tax on the base wage
-  // 2) annual tax on base wage + the one-off amounts
-  // Then we charge the incremental tax in the current pay run (not spread across the year).
   const calcAnnualTax = (annual: number) => {
     if (input.employmentType === "Full_Time") return calcProgressiveTax(annual, input.taxStatus);
-    // Part-time rule
     if (annual <= 10000) return annual * 0.10;
     return 10000 * 0.10 + calcProgressiveTax(annual, input.taxStatus);
   };
@@ -85,12 +73,10 @@ export function calculateMaltaPayroll(input: {
 
   const taxDue = taxWithOneOffAnnual;
 
-  // NI
-  // Same thresholds, but the one-off amounts should affect NI in the current period
-  // (not spread across the entire year).
   let niAnnualBase = 0;
   let niAnnualWithOneOff = 0;
   let niPerPeriod = 0;
+
   if (input.includeNI) {
     const weeksInPeriod = input.period === "Weekly" ? 1 : input.period === "Monthly" ? WEEKS_PER_YEAR / MONTHS_PER_YEAR : WEEKS_PER_YEAR;
 
@@ -99,6 +85,13 @@ export function calculateMaltaPayroll(input: {
     const weeklyEqWith = input.period === "Weekly" ? grossWithOneOffThisPeriod : input.period === "Monthly" ? (grossWithOneOffThisPeriod * MONTHS_PER_YEAR) / WEEKS_PER_YEAR : grossWithOneOffThisPeriod / WEEKS_PER_YEAR;
 
     const weeklyNI = (weeklyGross: number) => {
+      // PART TIME FIX: Part time workers pay a flat 10% of their gross, capped to the maximums.
+      if (input.employmentType === "Part_Time") {
+        if (input.before1962) return Math.min(weeklyGross * 0.10, 49.04);
+        return Math.min(weeklyGross * 0.10, 55.93);
+      }
+
+      // FULL TIME RULES
       if (input.under17 && weeklyGross <= 229.44) return 6.62;
       if (!input.under17 && weeklyGross <= 229.44) return 22.94;
       if (input.apprentice && input.under17) return Math.min(weeklyGross * 0.10, 4.38);
@@ -113,11 +106,9 @@ export function calculateMaltaPayroll(input: {
     const baseWeekly = weeklyNI(weeklyEqBase);
     const withWeekly = weeklyNI(weeklyEqWith);
 
-    // Annual views (for summary)
     niAnnualBase = Math.min(baseWeekly * WEEKS_PER_YEAR, 2908.36);
     niAnnualWithOneOff = Math.min(withWeekly * WEEKS_PER_YEAR, 2908.36);
 
-    // Period due: base portion spread across periods + one-off portion charged this period
     const basePerPeriod = niAnnualBase / divisor;
     const oneOffPeriod = Math.max(0, (withWeekly - baseWeekly) * weeksInPeriod);
     const capPerPeriod = 2908.36 / divisor;
@@ -126,23 +117,17 @@ export function calculateMaltaPayroll(input: {
 
   const niDue = niAnnualWithOneOff || 0;
 
-  // Net for the current pay run must NOT spread one-off amounts across the year.
-  // Compute net directly for the current period.
   const grossWithOneOffThisPeriod = input.grossWage + allowanceThisPeriod + bonusThisPeriod;
   const netPerPeriod = grossWithOneOffThisPeriod - taxPerPeriod - niPerPeriod;
 
-  // Annual net is still useful for summaries (one-off amounts happen once in the year).
   const netAnnual = annualGross - taxDue - niDue + allowanceThisPeriod + bonusThisPeriod;
 
   return {
-    // Base gross for the period (excluding one-off extras)
     grossPerPeriod: input.grossWage,
-    // One-off extras for this pay run
     allowancePerPeriod: allowanceThisPeriod,
     bonusPerPeriod: bonusThisPeriod,
     taxPerPeriod,
     niPerPeriod,
-    // Net for the current pay run includes one-off extras (not spread across the year).
     netPerPeriod: Math.round(netPerPeriod * 100) / 100,
     annual: { gross: annualGross, taxableIncome, tax: taxDue, ni: niDue, net: netAnnual },
   };

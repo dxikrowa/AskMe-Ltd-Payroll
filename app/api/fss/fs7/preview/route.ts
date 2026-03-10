@@ -163,6 +163,7 @@ export async function POST(req: Request) {
   const childcareAns = String(body.childcare?.answer ?? "").toLowerCase();
   const shareAns = String(body.shareOptions?.answer ?? "").toLowerCase();
 
+  // Robustly handle every checkbox naming variation possible across FS7 versions
   fillCheckboxes(form, {
     paid_childcare_yes: childcareAns === "yes",
     paid_childcare_no: childcareAns === "no",
@@ -173,9 +174,13 @@ export async function POST(req: Request) {
     "Check Box3": shareAns === "yes",
     "Check Box4": shareAns === "no",
     "Childcare Facility Yes": childcareAns === "yes",
+    "Childcare_Yes": childcareAns === "yes",
     "Childcare Facility No": childcareAns === "no",
+    "Childcare_No": childcareAns === "no",
     "Share Options Yes": shareAns === "yes",
-    "Share Options No": shareAns === "no"
+    "ShareOptions_Yes": shareAns === "yes",
+    "Share Options No": shareAns === "no",
+    "ShareOptions_No": shareAns === "no"
   });
 
   form.flatten();

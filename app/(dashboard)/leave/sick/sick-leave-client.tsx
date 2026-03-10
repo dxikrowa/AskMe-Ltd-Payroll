@@ -42,13 +42,39 @@ export default function SickLeaveClient({ orgId, employees }: { orgId: string; e
     <div style={{ marginTop: 14 }}>
       <div style={panel}>
         <div style={sectionTitle}>Add Sick Leave</div>
-        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Employee</div><select style={input as any} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employeeLabel(employee)}</option>)}</select></label>
-          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Date</div><input type="date" style={input} value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} /></label>
-          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Sick Days</div><input type="number" min="1" step="1" style={input} value={form.sickDays} onChange={(e) => setForm((prev) => ({ ...prev, sickDays: e.target.value }))} /></label>
-          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Hours Per Day</div><input type="number" min="0" step="0.01" style={input} value={form.hoursPerDay} onChange={(e) => setForm((prev) => ({ ...prev, hoursPerDay: e.target.value }))} /></label>
-          <label><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Pay Type</div><select style={input as any} value={form.payType} onChange={(e) => setForm((prev) => ({ ...prev, payType: e.target.value as FormState['payType'] }))}><option value="FULL_PAY">Full-pay</option><option value="HALF_PAY">Half-pay</option><option value="NO_PAY">No pay</option></select></label>
-          <label style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>Notes</div><input style={input as any} value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} /></label>
+        {/* Strictly defined grid to prevent border overlaps */}
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Employee</div>
+            <select style={{...input, width: "100%"} as any} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+              {employees.map((employee) => <option key={employee.id} value={employee.id}>{employeeLabel(employee)}</option>)}
+            </select>
+          </label>
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Date</div>
+            <input type="date" style={{...input, width: "100%"}} value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} />
+          </label>
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Sick Days</div>
+            <input type="number" min="1" step="1" style={{...input, width: "100%"}} value={form.sickDays} onChange={(e) => setForm((prev) => ({ ...prev, sickDays: e.target.value }))} />
+          </label>
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Hours Per Day</div>
+            <input type="number" min="0" step="0.01" style={{...input, width: "100%"}} value={form.hoursPerDay} onChange={(e) => setForm((prev) => ({ ...prev, hoursPerDay: e.target.value }))} />
+          </label>
+
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Pay Type</div>
+            <select style={{...input, width: "100%"} as any} value={form.payType} onChange={(e) => setForm((prev) => ({ ...prev, payType: e.target.value as FormState['payType'] }))}>
+              <option value="FULL_PAY">Full-pay</option>
+              <option value="HALF_PAY">Half-pay</option>
+              <option value="NO_PAY">No pay</option>
+            </select>
+          </label>
+          <label style={{ gridColumn: "span 3" }}>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Notes</div>
+            <input style={{...input, width: "100%"}} value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
+          </label>
         </div>
         <button type="button" onClick={addEntry} style={{ ...primaryBtn, marginTop: 14 }}>Add Sick Leave</button>
       </div>
