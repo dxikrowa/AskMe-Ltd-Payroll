@@ -8,15 +8,7 @@ import { PDFDocument } from "pdf-lib";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  assertOrgAccess,
-  centsToEuroInt,
-  fillCheckboxes,
-  fillTextFields,
-  fillTextFieldsRight,
-  toCents,
-  formatDateDDMMYYYY,
-} from "@/lib/fss";
+import { assertOrgAccess, centsToEuroInt, fillCheckboxes, fillTextFields, fillTextFieldsRight, toCents, formatDateDDMMYYYY } from "@/lib/fss";
 
 type Body = {
   organisationId: string;
@@ -53,52 +45,66 @@ export async function POST(req: Request) {
   const org = await prisma.organisation.findUnique({ where: { id: body.organisationId } });
   if (!org) return NextResponse.json({ error: "Organisation not found" }, { status: 404 });
 
-  // FS7 is built from previously generated FS5 forms.
   const fs5Forms = await prisma.fssForm.findMany({
-    where: {
-      id: { in: body.fs5FormIds ?? [] },
-      organisationId: body.organisationId,
-      type: "FS5",
-      year: body.year,
-    },
+    where: { id: { in: body.fs5FormIds ?? [] }, organisationId: body.organisationId, type: "FS5", year: body.year },
     select: { id: true, month: true, data: true },
   });
 
-  // Extract per-month amounts (stored in the FS5 data payload)
-  type MonthAgg = { taxCents: number; niCents: number; maternityCents: number; grossCents: number; date?: string; receiptNo?: string };
+  type MonthAgg = { 
+    taxCents: number; ftTaxCents: number; ptTaxCents: number;
+    niCents: number; maternityCents: number; 
+    grossCents: number; ftGrossCents: number; ptGrossCents: number; 
+    overtimeCents: number; ftOvertimeCents: number; ptOvertimeCents: number;
+    date?: string; receiptNo?: string; 
+  };
+
   const months: Record<number, MonthAgg> = {};
   for (const f of fs5Forms) {
     const m = f.month ?? undefined;
     if (!m) continue;
     const d: any = f.data ?? {};
+    
     const taxCents = Number(d.taxCents ?? toCents(d.total_tax_deductions));
+    const ftTaxCents = Number(d.ftTaxCents ?? taxCents);
+    const ptTaxCents = Number(d.ptTaxCents ?? 0);
+    
     const niCents = Number(d.niCents ?? toCents(d.ssc_contributions));
     const maternityCents = Number(d.maternityCents ?? toCents(d.maternity_fund_contribution));
+    
     const overtimeCents = Number(d.overtimeCents ?? toCents(d.overtime));
-    const grossBaseCents =
-      d.grossCents != null
-        ? Number(d.grossCents)
-        : Math.max(0, Number(toCents(d.total_gross_emoluments)) - overtimeCents);
+    const ftOvertimeCents = Number(d.ftOvertimeCents ?? overtimeCents);
+    const ptOvertimeCents = Number(d.ptOvertimeCents ?? 0);
+
+    const grossTotal = Number(d.grossCents ?? toCents(d.total_gross_emoluments));
+    const grossBaseCents = Math.max(0, grossTotal - overtimeCents);
+    
+    const ftGrossCents = Number(d.ftGrossCents ?? grossTotal);
+    const ptGrossCents = Number(d.ptGrossCents ?? 0);
+
     const date = (d.date_of_payment ?? d.payDate ?? "") as string;
     const receiptNo = (d.cheque_number ?? d.chequeNo ?? "") as string;
-    months[m] = { taxCents, niCents, maternityCents, grossCents: grossBaseCents, date, receiptNo };
-    // Store overtime on the object via a non-typed property
-    (months[m] as any).overtimeCents = overtimeCents;
+    
+    months[m] = { 
+      taxCents, ftTaxCents, ptTaxCents, niCents, maternityCents, 
+      grossCents: grossBaseCents, ftGrossCents, ptGrossCents,
+      overtimeCents, ftOvertimeCents, ptOvertimeCents,
+      date, receiptNo 
+    };
   }
 
-  const sum = (fn: (m: MonthAgg) => number) =>
-    Object.values(months).reduce((a, v) => a + (Number.isFinite(fn(v)) ? fn(v) : 0), 0);
+  const sum = (fn: (m: MonthAgg) => number) => Object.values(months).reduce((a, v) => a + (Number.isFinite(fn(v)) ? fn(v) : 0), 0);
 
   const tax = sum((m) => m.taxCents);
-  const baseGross = sum((m) => m.grossCents);
-  const overtime = Object.values(months).reduce((a, v) => a + (Number((v as any).overtimeCents ?? 0) || 0), 0);
-  const gross = baseGross + overtime;
-  const ftGrossBase = sum((m) => Math.max(0, (m.ftGrossCents || m.grossCents) - (m.ftOvertimeCents || m.overtimeCents || 0)));
-  const ptGrossBase = sum((m) => Math.max(0, (m.ptGrossCents || 0) - (m.ptOvertimeCents || 0)));
-  const ftTax = sum((m) => m.ftTaxCents || m.taxCents);
-  const ptTax = sum((m) => m.ptTaxCents || 0);
+  const ftTax = sum((m) => m.ftTaxCents);
+  const ptTax = sum((m) => m.ptTaxCents);
 
-  // Number of FS3s issued: count distinct employees with at least one payslip in the year
+  const baseGross = sum((m) => m.grossCents);
+  const overtime = sum((m) => m.overtimeCents);
+  const gross = baseGross + overtime;
+
+  const ftGrossBase = sum((m) => Math.max(0, m.ftGrossCents - m.ftOvertimeCents));
+  const ptGrossBase = sum((m) => Math.max(0, m.ptGrossCents - m.ptOvertimeCents));
+
   const yearStart = new Date(Date.UTC(body.year, 0, 1, 0, 0, 0));
   const yearEnd = new Date(Date.UTC(body.year + 1, 0, 1, 0, 0, 0));
   const empRows = await prisma.payslip.findMany({
@@ -120,16 +126,12 @@ export async function POST(req: Request) {
     payer_position: (org.payrollManagerPosition ?? "Employer").toString(),
     it_reg_no: body.itRegNo ?? "",
     jobsplus_reg_no: body.jobsplusRegNo ?? "",
-    // FS7 template uses a random field name for the A4 date box
     text_8frhv: formatDateDDMMYYYY(body.date ?? ""),
     principal_full_name: body.principalFullName ?? "",
     principal_position: body.principalPosition ?? "",
     principal_signature: body.principalSignature ?? "",
     employee_number_fs3: String(fs3count || ""),
 
-    // No decimal points in these boxes
-    // Some FS7 templates expose both a "gross emoluments" box and a separate "total" box.
-    // Fill both to be robust across template variants.
     gross_emoluments: centsToEuroInt(gross),
     gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
     gross_emoluments_parttime: centsToEuroInt(ptGrossBase),
@@ -138,7 +140,6 @@ export async function POST(req: Request) {
     tax_deductions_fulltime: centsToEuroInt(ftTax),
     tax_deductions_parttime: centsToEuroInt(ptTax),
     tax_deductions_overtime: "0",
-    tax_deductions_parttime: "0",
     tax_arrears_deductions: "0",
     total_tax_deductions: centsToEuroInt(tax),
     childcare_amount: body.childcare?.amount ?? "",
@@ -147,7 +148,6 @@ export async function POST(req: Request) {
     shareoptions_employee_number: body.shareOptions?.employees ?? "",
   });
 
-  // Right-fill numeric / comb fields (amount boxes)
   const rightFields: Record<string, any> = {
     gross_emoluments: centsToEuroInt(gross),
     gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
@@ -157,7 +157,6 @@ export async function POST(req: Request) {
     tax_deductions_fulltime: centsToEuroInt(ftTax),
     tax_deductions_parttime: centsToEuroInt(ptTax),
     tax_deductions_overtime: "0",
-    tax_deductions_parttime: "0",
     tax_arrears_deductions: "0",
     total_tax_deductions: centsToEuroInt(tax),
     employee_number_fs3: String(fs3count || ""),
@@ -165,11 +164,9 @@ export async function POST(req: Request) {
   };
   fillTextFieldsRight(form, rightFields);
 
-  // Section F (payments made to CFTC during the year) and boxes F1/F2/F3 are filled by the government.
-  // Per user request, we DO NOT auto-fill any of those fields.
-
   if (body.overrideFields) fillTextFields(form, body.overrideFields);
 
+  // Fallbacks for multiple PDF Checkbox implementations
   fillCheckboxes(form, {
     paid_childcare_yes: String(body.childcare?.answer ?? "").toLowerCase() === "yes",
     paid_childcare_no: String(body.childcare?.answer ?? "").toLowerCase() === "no",
@@ -179,33 +176,22 @@ export async function POST(req: Request) {
     "Check Box2": String(body.childcare?.answer ?? "").toLowerCase() === "no",
     "Check Box3": String(body.shareOptions?.answer ?? "").toLowerCase() === "yes",
     "Check Box4": String(body.shareOptions?.answer ?? "").toLowerCase() === "no",
-    paid_childcare_no: String(body.childcare?.answer ?? "").toLowerCase() === "no",
-    shareoptions_yes: String(body.shareOptions?.answer ?? "").toLowerCase() === "yes",
-    shareoptions_no: String(body.shareOptions?.answer ?? "").toLowerCase() === "no",
   });
 
-  // NOTE: Do not auto-fill Section F totals (government filled).
-
   form.flatten();
   form.flatten();
 
-const out = await pdfDoc.save();
+  const out = await pdfDoc.save();
+  const pdfBuffer = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength) as ArrayBuffer;
 
-const pdfBuffer = out.buffer.slice(
-  out.byteOffset,
-  out.byteOffset + out.byteLength
-) as ArrayBuffer;
-
-return new NextResponse(pdfBuffer, {
-  status: 200,
-  headers: {
-    "Content-Type": "application/pdf",
-    "Content-Disposition": 'inline; filename="fs5-preview.pdf"',
-    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-    Pragma: "no-cache",
-    Expires: "0",
-    "X-Frame-Options": "SAMEORIGIN",
-    "Content-Security-Policy": "frame-ancestors 'self'",
-  },
-});
+  return new NextResponse(pdfBuffer, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": 'inline; filename="fs7-preview.pdf"',
+      "Cache-Control": "no-store",
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
+    },
+  });
 }

@@ -23,12 +23,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const previewReq = new Request(req.url, {
-    method: "POST",
-    headers: req.headers,
-    body: JSON.stringify(body),
-  });
-
+  const previewReq = new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(body) });
   const res = await previewPost(previewReq);
   const ct = res.headers.get("Content-Type") ?? "";
   if (!ct.includes("application/pdf")) return res;
@@ -43,48 +38,39 @@ export async function POST(req: Request) {
   const payslips = await prisma.payslip.findMany({
     where: { id: { in: payslipIds }, organisationId },
     select: {
-      grossCents: true,
-      taxCents: true,
-      niCents: true,
-      employeeId: true,
-      overtimeCents: true,
-      maternityFundCents: true,
+      grossCents: true, taxCents: true, niCents: true, employeeId: true, overtimeCents: true, maternityFundCents: true,
+      employee: { select: { employmentType: true } }
     },
   });
 
-  let ftGross = 0, ptGross = 0, ftTax = 0, ptTax = 0, ftOvertime = 0, ptOvertime = 0;
+  let ftGross = 0, ptGross = 0, ftTax = 0, ptTax = 0, ftOvertime = 0, ptOvertime = 0, ni = 0, maternity = 0;
   const ftPayees = new Set<string>(); const ptPayees = new Set<string>();
+
   for (const p of payslips) {
+    ni += p.niCents;
+    maternity += (p.maternityFundCents ?? 0);
     const isPT = p.employee?.employmentType === "PART_TIME";
-    if (isPT) { ptGross+=p.grossCents; ptTax+=p.taxCents; ptOvertime+=(p.overtimeCents||0); ptPayees.add(p.employeeId); }
-    else { ftGross+=p.grossCents; ftTax+=p.taxCents; ftOvertime+=(p.overtimeCents||0); ftPayees.add(p.employeeId); }
+    if (isPT) {
+      ptGross += p.grossCents; ptTax += p.taxCents; ptOvertime += (p.overtimeCents || 0); ptPayees.add(p.employeeId);
+    } else {
+      ftGross += p.grossCents; ftTax += p.taxCents; ftOvertime += (p.overtimeCents || 0); ftPayees.add(p.employeeId);
+    }
   }
-  const gross = ftGross + ptGross; const tax = ftTax + ptTax; const overtimeCents = ftOvertime + ptOvertime; const payees = ftPayees.size + ptPayees.size;
-  const tax = payslips.reduce((a, p) => a + p.taxCents, 0);
-  const ni = payslips.reduce((a, p) => a + p.niCents, 0);
-  const payees = new Set(payslips.map((p) => p.employeeId)).size;
-  const maternity = payslips.reduce((a, p) => a + (p.maternityFundCents ?? 0), 0);
-  const overtimeCents = payslips.reduce((a, p) => a + (p.overtimeCents ?? 0), 0);
+
+  const gross = ftGross + ptGross;
+  const tax = ftTax + ptTax;
+  const overtimeCents = ftOvertime + ptOvertime;
+  const payees = ftPayees.size + ptPayees.size;
   const totalDue = tax + ni + maternity;
 
   const fssForm = await prisma.fssForm.create({
     data: {
-      organisationId,
-      type: "FS5",
-      year,
-      month: month ?? undefined,
-      employeeId: null,
-      sourcePayslipIds: payslipIds,
-      sourceFssFormIds: [],
+      organisationId, type: "FS5", year, month: month ?? undefined, employeeId: null,
+      sourcePayslipIds: payslipIds, sourceFssFormIds: [],
       data: {
-        ...body,
-        grossCents: gross, ftGrossCents: ftGross, ptGrossCents: ptGross, taxCents: tax, ftTaxCents: ftTax, ptTaxCents: ptTax, ftOvertimeCents: ftOvertime, ptOvertimeCents: ptOvertime,
-        taxCents: tax,
-        niCents: ni,
-        maternityCents: maternity,
-        overtimeCents,
-        totalDueCents: totalDue,
-        payees,
+        ...body, grossCents: gross, ftGrossCents: ftGross, ptGrossCents: ptGross,
+        taxCents: tax, ftTaxCents: ftTax, ptTaxCents: ptTax, ftOvertimeCents: ftOvertime, ptOvertimeCents: ptOvertime,
+        niCents: ni, maternityCents: maternity, overtimeCents, totalDueCents: totalDue, payees,
       },
       pdfPath: null,
     },
@@ -93,10 +79,7 @@ export async function POST(req: Request) {
   const storedPath = `fss/fs5/${organisationId}/${year}/${fssForm.id}.pdf`;
   const saved = await savePrivatePdf(storedPath, pdfBytes);
 
-  await prisma.fssForm.update({
-    where: { id: fssForm.id },
-    data: { pdfPath: saved.storedPath },
-  });
+  await prisma.fssForm.update({ where: { id: fssForm.id }, data: { pdfPath: saved.storedPath } });
 
   return new NextResponse(pdfBytes, {
     status: 200,
