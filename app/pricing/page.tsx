@@ -1,113 +1,65 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import Image from "next/image";
 
 export default async function PricingPage() {
   const session = await getServerSession(authOptions);
   return (
-    <main style={{ minHeight: "100vh", background: "#05070b", color: "#e5e7eb" }}>
-      <header
-        style={{
-          height: 64,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 24px",
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
-          background: "rgba(255,255,255,0.02)",
-        }}
-      >
-        <Link href="/" style={{ textDecoration: "none", color: "#e5e7eb", fontWeight: 900 }}>
-          Payroll App
+    <main style={{ minHeight: "100vh", background: "var(--background)", color: "var(--text)" }}>
+      <header style={{ height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", borderBottom: "1px solid var(--panel-border)", background: "var(--panel-bg)" }}>
+        <Link href="/" style={{ textDecoration: "none", color: "var(--text)", fontWeight: 900, display: "flex", alignItems: "center", gap: 10 }}>
+          <Image src="/askmeltdbluelionpayroll.png" alt="Logo" width={28} height={28} style={{ objectFit: "contain" }} /> AskMe Payroll
         </Link>
-
         <nav style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          <Link href="/" style={{ color: "#e5e7eb", opacity: 0.9, textDecoration: "none" }}>
-            Features
-          </Link>
-          <Link
-            href={session ? "/dashboard" : "/login"}
-            style={{
-              height: 36,
-              padding: "0 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.04)",
-              color: "#e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              textDecoration: "none",
-              fontWeight: 700,
-            }}
-          >
-            Dashboard
-          </Link>
-          <Link
-            href={session ? "/account" : "/login"}
-            style={{
-              height: 36,
-              padding: "0 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.04)",
-              color: "#e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              textDecoration: "none",
-              fontWeight: 700,
-            }}
-          >
-            My Account
-          </Link>
+          <Link href={session ? "/dashboard" : "/login"} style={{ height: 36, padding: "0 16px", borderRadius: 10, background: "var(--toggle-on-bg)", color: "#38bdf8", display: "flex", alignItems: "center", textDecoration: "none", fontWeight: 800 }}>Dashboard</Link>
         </nav>
       </header>
 
-      <section style={{ padding: "56px 24px", maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ fontSize: 40, fontWeight: 950 }}>Pricing</div>
-        <div style={{ marginTop: 10, opacity: 0.8 }}>Pick the plan that fits your team.</div>
+      <section style={{ padding: "80px 24px", maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ color: "#38bdf8", fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Transparent Pricing</div>
+        <div style={{ fontSize: 48, fontWeight: 950 }}>Pick the plan that fits.</div>
 
-        <div style={{ marginTop: 22, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
-          {["Starter", "Pro", "Business"].map((name, idx) => (
-            <div
-              key={name}
-              style={{
-                padding: 18,
-                borderRadius: 16,
-                border: "1px solid rgba(255,255,255,0.10)",
-                background: idx === 1 ? "rgba(59,130,246,0.12)" : "rgba(255,255,255,0.03)",
-              }}
-            >
-              <div style={{ fontWeight: 950, fontSize: 16 }}>{name}</div>
-              <div style={{ marginTop: 10, fontSize: 28, fontWeight: 950 }}>
-                {idx === 0 ? "€19" : idx === 1 ? "€49" : "€99"}
-                <span style={{ fontSize: 14, fontWeight: 700, opacity: 0.8 }}>/mo</span>
-              </div>
-              <ul style={{ marginTop: 12, opacity: 0.82, lineHeight: 1.7, paddingLeft: 18 }}>
-                <li>Payslips PDF generator</li>
-                <li>FS3 / FS5 / FS7 generator</li>
-                <li>Payroll history & search</li>
-                <li>Overtime & leave tracking</li>
-              </ul>
-
-              <Link
-                href={session ? "/billing" : "/register"}
-                style={{
-                  marginTop: 14,
-                  height: 40,
-                  padding: "0 14px",
-                  borderRadius: 12,
-                  background: "rgba(59,130,246,0.85)",
-                  color: "#fff",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  textDecoration: "none",
-                  fontWeight: 900,
-                }}
-              >
-                {session ? "Manage subscription" : "Get started"}
-              </Link>
-            </div>
-          ))}
+        <div style={{ marginTop: 60, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, textAlign: "left" }}>
+          {/* Starter */}
+          <div style={{ padding: 32, borderRadius: 20, border: "1px solid var(--panel-border)", background: "var(--panel-bg)" }}>
+            <div style={{ fontWeight: 950, fontSize: 20 }}>Starter</div>
+            <div style={{ marginTop: 12, fontSize: 36, fontWeight: 950 }}>€39<span style={{ fontSize: 16, fontWeight: 700, opacity: 0.6 }}>/mo</span></div>
+            <ul style={{ marginTop: 24, opacity: 0.82, lineHeight: 2, paddingLeft: 0, listStyle: "none" }}>
+              <li>✓ Payslips PDF generator</li>
+              <li>✓ FS3 / FS5 / FS7 forms</li>
+              <li>✓ Payroll history & search</li>
+              <li>✓ Overtime & leave tracking</li>
+            </ul>
+            <Link href={session ? "/billing" : "/register"} style={{ marginTop: 32, height: 44, display: "flex", justifyContent: "center", alignItems: "center", borderRadius: 12, background: "var(--toggle-on-bg)", color: "#38bdf8", textDecoration: "none", fontWeight: 900 }}>{session ? "Manage subscription" : "Get started"}</Link>
+          </div>
+          
+          {/* Pro */}
+          <div style={{ padding: 32, borderRadius: 20, border: "2px solid #38bdf8", background: "#0c1831", position: "relative", transform: "scale(1.05)", boxShadow: "0 24px 50px rgba(56,189,248,0.15)" }}>
+            <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "#38bdf8", color: "#0b1220", padding: "6px 16px", borderRadius: 999, fontWeight: 900, fontSize: 12, textTransform: "uppercase", letterSpacing: 1 }}>Most Popular</div>
+            <div style={{ fontWeight: 950, fontSize: 20 }}>Pro</div>
+            <div style={{ marginTop: 12, fontSize: 36, fontWeight: 950 }}>€79<span style={{ fontSize: 16, fontWeight: 700, opacity: 0.6 }}>/mo</span></div>
+            <ul style={{ marginTop: 24, opacity: 0.9, lineHeight: 2, paddingLeft: 0, listStyle: "none" }}>
+              <li>✓ Everything in Starter</li>
+              <li>✓ Multi-company support</li>
+              <li>✓ Automated Timesheet sync</li>
+              <li>✓ Advanced Leave pro-rating</li>
+            </ul>
+            <Link href={session ? "/billing" : "/register"} style={{ marginTop: 32, height: 44, display: "flex", justifyContent: "center", alignItems: "center", borderRadius: 12, background: "#38bdf8", color: "#0b1220", textDecoration: "none", fontWeight: 900 }}>Start Free Trial</Link>
+          </div>
+          
+          {/* Business */}
+          <div style={{ padding: 32, borderRadius: 20, border: "1px solid var(--panel-border)", background: "var(--panel-bg)" }}>
+            <div style={{ fontWeight: 950, fontSize: 20 }}>Enterprise</div>
+            <div style={{ marginTop: 12, fontSize: 36, fontWeight: 950 }}>Custom</div>
+            <ul style={{ marginTop: 24, opacity: 0.82, lineHeight: 2, paddingLeft: 0, listStyle: "none" }}>
+              <li>✓ Everything in Pro</li>
+              <li>✓ API Access</li>
+              <li>✓ Bulk Import tools</li>
+              <li>✓ Priority Support</li>
+            </ul>
+            <Link href={session ? "/billing" : "/register"} style={{ marginTop: 32, height: 44, display: "flex", justifyContent: "center", alignItems: "center", borderRadius: 12, border: "1px solid var(--panel-border)", color: "var(--text)", textDecoration: "none", fontWeight: 900 }}>Contact Sales</Link>
+          </div>
         </div>
       </section>
     </main>

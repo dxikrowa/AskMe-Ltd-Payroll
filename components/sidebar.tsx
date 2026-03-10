@@ -1,8 +1,8 @@
-
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Logo from "./logo";
 
 type NavItem = { label: string; href: string; icon: string };
 
@@ -34,10 +34,13 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", padding: 16, gap: 12, color: "var(--text)", background: "var(--sidebar-bg)", borderRight: "1px solid var(--sidebar-border)" }}>
-      <Link href="/dashboard" style={{ display: "block", padding: "10px 8px 14px", borderBottom: "1px solid var(--sidebar-border)", textDecoration: "none", color: "var(--text)" }}>
-        <div style={{ fontWeight: 900, fontSize: 18 }}>AskMe Payroll</div>
-        <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>Payroll management</div>
+    <div style={{ height: "100vh", position: "sticky", top: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: 16, gap: 12, color: "var(--text)", background: "var(--sidebar-bg)", borderRight: "1px solid var(--sidebar-border)" }}>
+      <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px 14px", borderBottom: "1px solid var(--sidebar-border)", textDecoration: "none", color: "var(--text)" }}>
+        <Logo variant="light" size="sm" iconOnly />
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 18 }}>AskMe Payroll</div>
+          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>Payroll management</div>
+        </div>
       </Link>
 
       <NavSection title="Management">{management.map((item) => <NavButton key={item.href} item={item} active={isActive(pathname, item.href)} />)}</NavSection>
@@ -53,7 +56,7 @@ function NavSection({ title, children }: { title: string; children: React.ReactN
 }
 
 function NavButton({ item, active }: { item: NavItem; active: boolean }) {
-  return <Link href={item.href} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px", borderRadius: 12, textDecoration: "none", color: active ? "var(--text)" : "var(--muted)", background: active ? "var(--sidebar-active-bg)" : "transparent", border: active ? "1px solid var(--sidebar-active-border)" : "1px solid transparent" }}><span style={{ width: 18, display: "inline-block", opacity: 0.9 }}>{item.icon}</span><span style={{ fontSize: 14 }}>{item.label}</span></Link>;
+  return <Link href={item.href} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px", borderRadius: 12, textDecoration: "none", color: active ? "var(--text)" : "var(--muted)", background: active ? "var(--sidebar-active-bg)" : "transparent", border: active ? "1px solid var(--sidebar-active-border)" : "1px solid transparent", transition: "all 0.2s ease" }}><span style={{ width: 18, display: "inline-block", opacity: 0.9 }}>{item.icon}</span><span style={{ fontSize: 14 }}>{item.label}</span></Link>;
 }
 
 function isActive(pathname: string, href: string) {

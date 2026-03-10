@@ -1,99 +1,176 @@
-
 "use client";
 
 import Image from "next/image";
 import { useState } from "react";
 import MarketingHeader from "@/components/marketing-header";
 
-const demos = [
-  { id: "dashboard", label: "Dashboard", src: "/marketing/placeholder-dashboard.png", title: "Run payroll with clear company and employee views.", desc: "Manage employees, payroll periods, leave balances and generated files from one place." },
-  { id: "payslips", label: "Payslips", src: "/marketing/placeholder-demos.png", title: "Preview and generate payslips faster.", desc: "See totals before exporting and keep payroll history available for later reference." },
-  { id: "forms", label: "FSS Forms", src: "/marketing/placeholder-dashboard.svg", title: "Generate FS3, FS5 and FS7 forms.", desc: "Use payroll records to prepare statutory forms and export PDFs when needed." },
+const demoTabs = [
+  { id: "dashboard", label: "Dashboard Analytics", title: "Add your team", desc: "Import team members and manage their tax profiles, employment types, and details effortlessly.", img: "/image_4f4cbe.png" },
+  { id: "history", label: "Review hours & bonuses", title: "Review hours & bonuses", desc: "We auto-sync timesheets and leave records. Just review the entries and apply any one-off bonuses or deductions.", img: "/image_4f4c3a.png" },
+  { id: "analytics", label: "Click 'Run Payroll'", title: "Click 'Run Payroll'", desc: "Get a clear breakdown of gross, net, tax, and NI contributions. We handle the heavy lifting and FSS compliance.", img: "/image_4f4959.png" }
 ];
 
 export default function LandingPage() {
-  const [activeDemo, setActiveDemo] = useState(demos[0]);
+  const [activeTab, setActiveTab] = useState(0);
 
-  return <main style={{ background:"#f8fafc", color:"#0f172a", minHeight:"100vh" }}>
-    <MarketingHeader />
-    <section style={{ maxWidth:1200, margin:"0 auto", padding:"72px 24px 56px", display:"grid", gridTemplateColumns:"1.1fr 0.9fr", gap:32, alignItems:"center" }}>
-      <div>
-        <div style={{ display:"inline-flex", padding:"6px 12px", borderRadius:999, background:"#f5e7b8", color:"#8a6a18", fontWeight:700, fontSize:12 }}>Payroll SaaS for Malta</div>
-        <h1 style={{ fontSize:56, lineHeight:1.05, margin:"18px 0 14px", fontWeight:900 }}>Malta payroll, payslips and FSS forms in one place.</h1>
-        <p style={{ fontSize:18, lineHeight:1.6, color:"#475569", maxWidth:640 }}>Run payroll, preview payslips live, generate FS3/FS5/FS7 forms, manage vacation and sick leave, and keep employee records organized.</p>
-        <div style={{ display:"flex", gap:12, marginTop:24, flexWrap:"wrap" }}>
-          <a href="#pricing" style={{ padding:"12px 16px", borderRadius:12, background:"#8a6a18", color:"white", textDecoration:"none", fontWeight:800 }}>View pricing</a>
-          <a href="#demos" style={{ padding:"12px 16px", borderRadius:12, border:"1px solid #cbd5e1", color:"#0f172a", textDecoration:"none", fontWeight:700 }}>See demo</a>
-        </div>
-      </div>
-      <div style={{ background:"white", border:"1px solid #e5e7eb", borderRadius:20, padding:18, boxShadow:"0 20px 60px rgba(15,23,42,0.08)" }}>
-        <Image src="/marketing/placeholder-dashboard.png" alt="Payroll dashboard preview" width={900} height={560} style={{ width:"100%", height:"auto", borderRadius:14 }} />
-      </div>
-    </section>
-
-    <section id="features" style={{ maxWidth:1200, margin:"0 auto", padding:"0 24px 56px" }}>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:16 }}>
-        {[["Live preview", "Preview payslips and statutory forms before generating PDFs."],["Payroll history", "Store past payslips and use them for total-to-date values."],["Leave tracking", "Track vacation leave and sick leave directly from the dashboard."],["Billing", "Simple subscription access for payroll teams and company owners."]].map(([title, text]) => <div key={title} style={{ background:"white", border:"1px solid #e5e7eb", borderRadius:18, padding:20 }}><div style={{ fontWeight:800, fontSize:18 }}>{title}</div><div style={{ color:"#475569", marginTop:8, lineHeight:1.6 }}>{text}</div></div>)}
-      </div>
-    </section>
-
-    <section id="demos" style={{ maxWidth:1200, margin:"0 auto", padding:"0 24px 56px" }}>
-      <div style={{ background:"white", border:"1px solid #e5e7eb", borderRadius:24, padding:24, boxShadow:"0 20px 60px rgba(15,23,42,0.06)" }}>
-        <div style={{ fontSize:30, fontWeight:900, marginBottom:8 }}>Application demo</div>
-        <div style={{ color:"#475569", marginBottom:18 }}>Switch between screenshots using the buttons below.</div>
-        <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:18 }}>
-          {demos.map((d) => <button key={d.id} onClick={() => setActiveDemo(d)} style={{ padding:"10px 14px", borderRadius:999, border:d.id===activeDemo.id?"1px solid #8a6a18":"1px solid #cbd5e1", background:d.id===activeDemo.id?"#f8f0d7":"white", color:"#0f172a", fontWeight:700, cursor:"pointer" }}>{d.label}</button>)}
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1.25fr", gap:24, alignItems:"center" }}>
-          <div>
-            <div style={{ fontSize:24, fontWeight:900 }}>{activeDemo.title}</div>
-            <div style={{ color:"#475569", lineHeight:1.7, marginTop:10 }}>{activeDemo.desc}</div>
+  return (
+    <main style={{ background: "var(--background)", color: "var(--text)", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
+      <MarketingHeader />
+      
+      {/* Hero Section */}
+      <section style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 24px", display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 40, alignItems: "center" }}>
+        <div>
+          <div style={{ display: "inline-flex", padding: "6px 16px", borderRadius: 999, background: "var(--toggle-on-bg)", color: "#38bdf8", fontWeight: 800, fontSize: 13, marginBottom: 20, border: "1px solid var(--btn-primary-border)" }}>
+            AskMe Payroll 2.0 is live
           </div>
-          <div style={{ border:"1px solid #e5e7eb", borderRadius:18, overflow:"hidden", background:"#f8fafc" }}>
-            <Image src={activeDemo.src} alt={activeDemo.label} width={1200} height={720} style={{ width:"100%", height:"auto" }} />
+          <h1 style={{ fontSize: 64, lineHeight: 1.05, margin: "0 0 20px", fontWeight: 900, letterSpacing: "-1px" }}>
+            Payroll that runs <span style={{ color: "#38bdf8" }}>itself.</span>
+          </h1>
+          <p style={{ fontSize: 18, lineHeight: 1.6, color: "var(--muted)", maxWidth: 600, marginBottom: 32 }}>
+            Automate your entire payroll process, calculate taxes accurately, and pay your global team in clicks, not hours. Built for modern businesses that value time.
+          </p>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <a href="/register" style={{ padding: "14px 24px", borderRadius: 12, background: "#38bdf8", color: "#0b1220", textDecoration: "none", fontWeight: 800, transition: "transform 0.2s, box-shadow 0.2s", boxShadow: "0 8px 24px rgba(56,189,248,0.25)" }}>
+              Start 14-Day Free Trial →
+            </a>
+            <a href="#demos" style={{ padding: "14px 24px", borderRadius: 12, border: "1px solid var(--panel-border)", color: "var(--text)", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.background = "var(--panel-bg)"} onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
+              ▶ Watch Demo
+            </a>
           </div>
         </div>
-      </div>
-    </section>
+        <div style={{ background: "var(--panel-bg)", border: "1px solid var(--panel-border)", borderRadius: 24, padding: 12, boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}>
+          <Image src="/image_4f4959.png" alt="Payroll dashboard" width={1000} height={600} style={{ width: "100%", height: "auto", borderRadius: 16 }} />
+        </div>
+      </section>
 
-    <section id="pricing" style={{ maxWidth:1200, margin:"0 auto", padding:"0 24px 56px" }}>
-      <div style={{ display:"grid", gridTemplateColumns:"0.9fr 1.1fr", gap:20 }}>
-        <div style={{ background:"white", border:"1px solid #e5e7eb", borderRadius:22, padding:24 }}>
-          <div style={{ fontSize:28, fontWeight:900 }}>Pricing</div>
-          <div style={{ marginTop:8, color:"#475569", lineHeight:1.7 }}>One monthly plan for the full payroll workspace.</div>
+      {/* Features Grid */}
+      <section id="features" style={{ maxWidth: 1200, margin: "0 auto", padding: "60px 24px 100px", textAlign: "center" }}>
+        <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 12 }}>Everything you need to manage payroll</h2>
+        <p style={{ fontSize: 18, color: "var(--muted)", maxWidth: 600, margin: "0 auto 48px" }}>We've removed the complexity from paying your team. Enjoy a seamless experience with features designed for scale.</p>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, textAlign: "left" }}>
+          {[
+            { icon: "📄", title: "Automated FSS Filing", text: "We automatically calculate, deduct, and generate FS3, FS5, and FS7 forms for you. Never worry about penalties." },
+            { icon: "⏱", title: "Time Tracking Sync", text: "Integrate directly with our native timesheets. Overtime and part-time hours sync automatically into the pay run." },
+            { icon: "🏖", title: "Leave Management", text: "Track sick leave and vacation leave accurately. Balances update in real-time on every generated payslip." },
+            { icon: "🛡", title: "Compliance Built-in", text: "Stay compliant with ever-changing labor laws. We calculate Malta NI, taxes, and maternity funds accurately." },
+            { icon: "🗂", title: "Historical Records", text: "Keep a perfectly organized history of all payrolls. Generate total-to-date reports across any given period easily." },
+            { icon: "💶", title: "Precise Calculations", text: "Handle complex pro-rata calculations for part-time employees, including capped statutory bonuses and allowances." }
+          ].map((f, idx) => (
+            <div key={idx} style={{ background: "var(--panel-bg)", border: "1px solid var(--panel-border)", borderRadius: 20, padding: 32, transition: "transform 0.2s, border-color 0.2s" }} onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.borderColor = "#38bdf8"; }} onMouseOut={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = "var(--panel-border)"; }}>
+              <div style={{ fontSize: 28, marginBottom: 16, background: "var(--toggle-on-bg)", width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14 }}>{f.icon}</div>
+              <h3 style={{ fontWeight: 800, fontSize: 20, marginBottom: 12 }}>{f.title}</h3>
+              <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>{f.text}</p>
+            </div>
+          ))}
         </div>
-        <div style={{ background:"#0f172a", color:"white", borderRadius:22, padding:24 }}>
-          <div style={{ opacity:0.75, fontSize:14 }}>Monthly plan</div>
-          <div style={{ fontSize:42, fontWeight:900, marginTop:8 }}>€39<span style={{ fontSize:18, opacity:0.75 }}>/month</span></div>
-          <div style={{ marginTop:16, display:"grid", gap:10, color:"#cbd5e1" }}>
-            <div>Unlimited payroll runs</div><div>Payslip generation</div><div>FS3 / FS5 / FS7 forms</div><div>Employee and leave tracking</div><div>Stripe billing</div>
-          </div>
-          <div style={{ marginTop:18 }}><a href="/register" style={{ padding:"12px 16px", borderRadius:12, background:"#8a6a18", color:"white", textDecoration:"none", fontWeight:800, display:"inline-block" }}>Create account</a></div>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section id="contact" style={{ maxWidth:1200, margin:"0 auto", padding:"0 24px 80px" }}>
-      <div style={{ display:"grid", gridTemplateColumns:"0.9fr 1.1fr", gap:20 }}>
-        <div style={{ background:"white", border:"1px solid #e5e7eb", borderRadius:22, padding:24 }}>
-          <div style={{ fontSize:28, fontWeight:900 }}>Contact</div>
-          <div style={{ color:"#475569", lineHeight:1.7, marginTop:10 }}>Use the form to send a message. Update the placeholder contact details later.</div>
-          <div style={{ marginTop:18, display:"grid", gap:8, color:"#334155" }}>
-            <div><strong>Email:</strong> hello@example.com</div>
-            <div><strong>Phone:</strong> +356 0000 0000</div>
-            <div><strong>Address:</strong> Placeholder business address, Malta</div>
+      {/* Interactive Demo Section */}
+      <section id="demos" style={{ background: "#060a10", padding: "100px 0", borderTop: "1px solid var(--panel-border)", borderBottom: "1px solid var(--panel-border)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ color: "#38bdf8", fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Simple Process</div>
+          <h2 style={{ fontSize: 40, fontWeight: 900, marginBottom: 40 }}>Run payroll in minutes, not days.</h2>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 60, alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {demoTabs.map((tab, i) => (
+                <button key={i} onClick={() => setActiveTab(i)} style={{ textAlign: "left", padding: 24, borderRadius: 20, background: activeTab === i ? "var(--panel-bg)" : "transparent", border: activeTab === i ? "1px solid var(--btn-primary-border)" : "1px solid transparent", cursor: "pointer", transition: "all 0.2s ease" }}>
+                  <div style={{ display: "flex", gap: 16 }}>
+                    <div style={{ background: activeTab === i ? "#38bdf8" : "var(--panel-border)", color: activeTab === i ? "#0b1220" : "var(--text)", width: 32, height: 32, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, flexShrink: 0 }}>0{i+1}</div>
+                    <div>
+                      <h3 style={{ fontSize: 18, fontWeight: 800, color: activeTab === i ? "#38bdf8" : "var(--text)", marginBottom: 8 }}>{tab.title}</h3>
+                      <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>{tab.desc}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div style={{ background: "var(--panel-bg)", border: "1px solid var(--panel-border)", borderRadius: 24, padding: 12, boxShadow: "0 30px 60px rgba(0,0,0,0.6)" }}>
+              <Image src={demoTabs[activeTab].img} alt={demoTabs[activeTab].title} width={1200} height={750} style={{ width: "100%", height: "auto", borderRadius: 16, transition: "opacity 0.3s ease" }} priority />
+            </div>
           </div>
         </div>
-        <form action="/api/contact" method="post" style={{ background:"white", border:"1px solid #e5e7eb", borderRadius:22, padding:24, display:"grid", gap:12 }}>
-          <input name="name" placeholder="Full name" style={field} required />
-          <input name="email" type="email" placeholder="Email address" style={field} required />
-          <input name="subject" placeholder="Subject" style={field} required />
-          <textarea name="message" placeholder="Your message" rows={6} style={{ ...field, resize:"vertical" }} required />
-          <button style={{ padding:"12px 16px", borderRadius:12, border:"1px solid #8a6a18", background:"#8a6a18", color:"white", fontWeight:800 }}>Send message</button>
-        </form>
-      </div>
-    </section>
-    <style>{`@media (max-width: 900px){ section:first-of-type,#pricing > div,#contact > div,#demos > div > div:last-child{grid-template-columns:1fr !important;} #features > div{grid-template-columns:1fr !important;} }`}</style>
-  </main>;
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 24px", textAlign: "center" }}>
+        <div style={{ color: "#38bdf8", fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Pricing Plans</div>
+        <h2 style={{ fontSize: 40, fontWeight: 900, marginBottom: 48 }}>Simple, transparent pricing</h2>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24, textAlign: "left" }}>
+          {/* Starter */}
+          <div style={{ background: "var(--panel-bg)", border: "1px solid var(--panel-border)", borderRadius: 24, padding: 40 }}>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Starter</h3>
+            <p style={{ color: "var(--muted)", marginBottom: 24 }}>Perfect for small teams and startups.</p>
+            <div style={{ fontSize: 48, fontWeight: 900, marginBottom: 24 }}>€39<span style={{ fontSize: 18, color: "var(--muted)", fontWeight: 500 }}>/mo</span></div>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", color: "var(--muted)", lineHeight: 2 }}>
+              <li>✓ Automated payroll runs</li>
+              <li>✓ Basic FSS filings</li>
+              <li>✓ Payslip generation</li>
+              <li>✓ Email support</li>
+            </ul>
+            <a href="/register" style={{ display: "block", textAlign: "center", padding: "14px", borderRadius: 12, background: "var(--toggle-on-bg)", color: "#38bdf8", textDecoration: "none", fontWeight: 800, transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.background = "rgba(56,189,248,0.25)"} onMouseOut={(e) => e.currentTarget.style.background = "var(--toggle-on-bg)"}>Get Started</a>
+          </div>
+          
+          {/* Pro */}
+          <div style={{ background: "#0c1831", border: "2px solid #38bdf8", borderRadius: 24, padding: 40, position: "relative", transform: "scale(1.05)", zIndex: 10, boxShadow: "0 24px 50px rgba(56,189,248,0.15)" }}>
+            <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "#38bdf8", color: "#0b1220", padding: "6px 16px", borderRadius: 999, fontWeight: 900, fontSize: 12, textTransform: "uppercase", letterSpacing: 1 }}>Most Popular</div>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Pro</h3>
+            <p style={{ color: "var(--muted)", marginBottom: 24 }}>Everything you need to scale your growing business.</p>
+            <div style={{ fontSize: 48, fontWeight: 900, marginBottom: 24 }}>€79<span style={{ fontSize: 18, color: "var(--muted)", fontWeight: 500 }}>/mo</span></div>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", color: "var(--text)", lineHeight: 2 }}>
+              <li>✓ Everything in Starter</li>
+              <li>✓ Multi-company support</li>
+              <li>✓ Leave & Timesheet tracking</li>
+              <li>✓ Advanced FS3, FS5, FS7 PDFs</li>
+              <li>✓ Priority support</li>
+            </ul>
+            <a href="/register" style={{ display: "block", textAlign: "center", padding: "14px", borderRadius: 12, background: "#38bdf8", color: "#0b1220", textDecoration: "none", fontWeight: 800, transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.background = "#7dd3fc"} onMouseOut={(e) => e.currentTarget.style.background = "#38bdf8"}>Start Free Trial</a>
+          </div>
+
+          {/* Enterprise */}
+          <div style={{ background: "var(--panel-bg)", border: "1px solid var(--panel-border)", borderRadius: 24, padding: 40 }}>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Enterprise</h3>
+            <p style={{ color: "var(--muted)", marginBottom: 24 }}>Advanced features for large organizations.</p>
+            <div style={{ fontSize: 48, fontWeight: 900, marginBottom: 24 }}>Custom</div>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", color: "var(--muted)", lineHeight: 2 }}>
+              <li>✓ Everything in Pro</li>
+              <li>✓ Custom API access</li>
+              <li>✓ Custom HR workflows</li>
+              <li>✓ Dedicated account manager</li>
+            </ul>
+            <a href="#contact" style={{ display: "block", textAlign: "center", padding: "14px", borderRadius: 12, border: "1px solid var(--panel-border)", color: "var(--text)", textDecoration: "none", fontWeight: 800, transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.background = "var(--panel-bg)"} onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>Contact Sales</a>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" style={{ padding: "0 24px 100px" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", background: "var(--panel-bg)", border: "1px solid var(--panel-border)", borderRadius: 24, display: "grid", gridTemplateColumns: "1fr 1fr", overflow: "hidden" }}>
+          <div style={{ background: "#0c1831", padding: 48 }}>
+            <h2 style={{ fontSize: 32, fontWeight: 900, marginBottom: 16 }}>Ready to transform your payroll?</h2>
+            <p style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 40 }}>Book a personalized demo with our team or shoot us a message. We're here to help you ditch the payroll headaches.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, color: "var(--text)" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>✉</span> hello@askmepayroll.com</div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>☏</span> +356 2100 0000</div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>📍</span> 642, Saint Joseph Street, Hamrun</div>
+            </div>
+          </div>
+          <div style={{ padding: 48 }}>
+            <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 24 }}>Send us a message</h3>
+            <form action="/api/contact" method="post" style={{ display: "grid", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <input name="name" placeholder="First Name" style={{ width: "100%", padding: 14, borderRadius: 12, background: "transparent", border: "1px solid var(--panel-border)", color: "var(--text)", outline: "none" }} required />
+                <input name="lastName" placeholder="Last Name" style={{ width: "100%", padding: 14, borderRadius: 12, background: "transparent", border: "1px solid var(--panel-border)", color: "var(--text)", outline: "none" }} />
+              </div>
+              <input name="email" type="email" placeholder="Work Email" style={{ width: "100%", padding: 14, borderRadius: 12, background: "transparent", border: "1px solid var(--panel-border)", color: "var(--text)", outline: "none" }} required />
+              <textarea name="message" placeholder="How can we help?" rows={4} style={{ width: "100%", padding: 14, borderRadius: 12, background: "transparent", border: "1px solid var(--panel-border)", color: "var(--text)", outline: "none", resize: "vertical" }} required />
+              <button style={{ padding: "16px", borderRadius: 12, background: "var(--background)", border: "1px solid var(--panel-border)", color: "var(--text)", fontWeight: 800, cursor: "pointer", transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.background = "#38bdf8"} onMouseOut={(e) => e.currentTarget.style.background = "var(--background)"}>Send Message →</button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
 }
-const field = { width:"100%", border:"1px solid #cbd5e1", borderRadius:12, padding:"12px 14px", fontSize:14, outline:"none" } as const;

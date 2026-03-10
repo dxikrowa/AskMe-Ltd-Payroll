@@ -13,13 +13,13 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--background)", color: "var(--text)" }}>
       <div style={{ width: 480, maxWidth: "100%" }}>
-        <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 6 }}>Create your account</div>
-        <div style={{ opacity: 0.75, marginBottom: 14 }}>Sign up with email and password or use Google.</div>
+        <div style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, textAlign: "center" }}>Create your account</div>
+        <div style={{ opacity: 0.75, marginBottom: 24, textAlign: "center" }}>Start your 14-day free trial. No credit card required.</div>
         <div style={panel}>
-          <button onClick={() => signIn("google", { callbackUrl: "/dashboard" })} style={{ ...ghostBtn, width: "100%" }}>Continue with Google</button>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", margin: "14px 0" }}><div style={{ height: 1, flex: 1, background: "var(--panel-border)" }} /><div style={{ fontSize: 12, opacity: 0.7 }}>or</div><div style={{ height: 1, flex: 1, background: "var(--panel-border)" }} /></div>
+          <button onClick={() => signIn("google", { callbackUrl: "/dashboard" })} style={{ ...ghostBtn, width: "100%", background: "var(--input-bg)" }}>Continue with Google</button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", margin: "18px 0" }}><div style={{ height: 1, flex: 1, background: "var(--panel-border)" }} /><div style={{ fontSize: 12, opacity: 0.5 }}>OR</div><div style={{ height: 1, flex: 1, background: "var(--panel-border)" }} /></div>
           <form onSubmit={async (e) => {
             e.preventDefault();
             setLoading(true); setError("");
@@ -29,12 +29,12 @@ export default function RegisterPage() {
             if (!res.ok) { setError(data?.error ?? "Failed to register"); return; }
             window.location.href = `/verify-email?email=${encodeURIComponent(email.trim())}`;
           }}>
-            <label style={{ display: "block" }}><div style={{ fontSize: 12, opacity: 0.7 }}>Full name</div><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={{ ...inputStyle, width: "100%", marginTop: 6 }} /></label>
-            <label style={{ display: "block", marginTop: 10 }}><div style={{ fontSize: 12, opacity: 0.7 }}>Email</div><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" style={{ ...inputStyle, width: "100%", marginTop: 6 }} /></label>
-            <label style={{ display: "block", marginTop: 10 }}><div style={{ fontSize: 12, opacity: 0.7 }}>Password</div><div style={{ display: "flex", gap: 8, marginTop: 6 }}><input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" style={{ ...inputStyle, width: "100%" }} /><button type="button" style={ghostBtn} onClick={() => setShowPassword((v) => !v)}>{showPassword ? "Hide" : "Show"}</button></div></label>
-            {error && <div style={{ marginTop: 10, color: "crimson" }}>{error}</div>}
-            <button style={{ ...primaryBtn, width: "100%", marginTop: 12 }} disabled={loading}>{loading ? "Creating account..." : "Create account"}</button>
-            <div style={{ marginTop: 10 }}><a href="/login" style={{ fontSize: 13, opacity: 0.85 }}>Already have an account? Log in</a></div>
+            <label style={{ display: "block" }}><div style={{ fontSize: 13, opacity: 0.8, marginBottom: 6, fontWeight: 600 }}>Full name</div><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={{ ...inputStyle, width: "100%" }} /></label>
+            <label style={{ display: "block", marginTop: 16 }}><div style={{ fontSize: 13, opacity: 0.8, marginBottom: 6, fontWeight: 600 }}>Email</div><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" style={{ ...inputStyle, width: "100%" }} /></label>
+            <label style={{ display: "block", marginTop: 16 }}><div style={{ fontSize: 13, opacity: 0.8, marginBottom: 6, fontWeight: 600 }}>Password</div><div style={{ display: "flex", gap: 8 }}><input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" style={{ ...inputStyle, width: "100%" }} /><button type="button" style={ghostBtn} onClick={() => setShowPassword((v) => !v)}>{showPassword ? "Hide" : "Show"}</button></div></label>
+            {error && <div style={{ marginTop: 12, color: "#fca5a5", fontSize: 14 }}>{error}</div>}
+            <button style={{ ...primaryBtn, width: "100%", marginTop: 24, height: 44, fontSize: 15 }} disabled={loading}>{loading ? "Creating account..." : "Create account"}</button>
+            <div style={{ marginTop: 16, textAlign: "center" }}><a href="/login" style={{ fontSize: 13, color: "#38bdf8", textDecoration: "none" }}>Already have an account? Log in</a></div>
           </form>
         </div>
       </div>
