@@ -27,10 +27,9 @@ export default function MarketingHeader() {
     }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", color: "var(--text)" }}>
-          <Image src="/askmeltdbluelionpayroll.png" alt="AskMe Logo" width={32} height={32} style={{ objectFit: "contain" }} />
+          <Image src="/askmeltdlionpayroll.png" alt="AskMe Logo" width={84} height={84} style={{ objectFit: "contain" }} />
           <div>
-            <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: "-0.5px" }}>AskMe Payroll</div>
-            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "1px" }}>Malta SaaS</div>
+            
           </div>
         </Link>
         <nav style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
