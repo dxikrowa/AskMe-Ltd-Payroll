@@ -84,12 +84,7 @@ export async function POST(req: Request) {
     const date = (d.date_of_payment ?? d.payDate ?? "") as string;
     const receiptNo = (d.cheque_number ?? d.chequeNo ?? "") as string;
     
-    months[m] = { 
-      taxCents, ftTaxCents, ptTaxCents, niCents, maternityCents, 
-      grossCents: grossBaseCents, ftGrossCents, ptGrossCents,
-      overtimeCents, ftOvertimeCents, ptOvertimeCents,
-      date, receiptNo 
-    };
+    months[m] = { taxCents, ftTaxCents, ptTaxCents, niCents, maternityCents, grossCents: grossBaseCents, ftGrossCents, ptGrossCents, overtimeCents, ftOvertimeCents, ptOvertimeCents, date, receiptNo };
   }
 
   const sum = (fn: (m: MonthAgg) => number) => Object.values(months).reduce((a, v) => a + (Number.isFinite(fn(v)) ? fn(v) : 0), 0);
@@ -131,7 +126,6 @@ export async function POST(req: Request) {
     principal_position: body.principalPosition ?? "",
     principal_signature: body.principalSignature ?? "",
     employee_number_fs3: String(fs3count || ""),
-
     gross_emoluments: centsToEuroInt(gross),
     gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
     gross_emoluments_parttime: centsToEuroInt(ptGrossBase),
@@ -166,16 +160,22 @@ export async function POST(req: Request) {
 
   if (body.overrideFields) fillTextFields(form, body.overrideFields);
 
-  // Fallbacks for multiple PDF Checkbox implementations
+  const childcareAns = String(body.childcare?.answer ?? "").toLowerCase();
+  const shareAns = String(body.shareOptions?.answer ?? "").toLowerCase();
+
   fillCheckboxes(form, {
-    paid_childcare_yes: String(body.childcare?.answer ?? "").toLowerCase() === "yes",
-    paid_childcare_no: String(body.childcare?.answer ?? "").toLowerCase() === "no",
-    shareoptions_yes: String(body.shareOptions?.answer ?? "").toLowerCase() === "yes",
-    shareoptions_no: String(body.shareOptions?.answer ?? "").toLowerCase() === "no",
-    "Check Box1": String(body.childcare?.answer ?? "").toLowerCase() === "yes",
-    "Check Box2": String(body.childcare?.answer ?? "").toLowerCase() === "no",
-    "Check Box3": String(body.shareOptions?.answer ?? "").toLowerCase() === "yes",
-    "Check Box4": String(body.shareOptions?.answer ?? "").toLowerCase() === "no",
+    paid_childcare_yes: childcareAns === "yes",
+    paid_childcare_no: childcareAns === "no",
+    shareoptions_yes: shareAns === "yes",
+    shareoptions_no: shareAns === "no",
+    "Check Box1": childcareAns === "yes",
+    "Check Box2": childcareAns === "no",
+    "Check Box3": shareAns === "yes",
+    "Check Box4": shareAns === "no",
+    "Childcare Facility Yes": childcareAns === "yes",
+    "Childcare Facility No": childcareAns === "no",
+    "Share Options Yes": shareAns === "yes",
+    "Share Options No": shareAns === "no"
   });
 
   form.flatten();
