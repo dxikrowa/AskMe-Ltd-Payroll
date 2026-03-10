@@ -8,7 +8,7 @@ import { PDFDocument } from "pdf-lib";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertOrgAccess, centsToEuroInt, fillCheckboxes, fillTextFields, fillTextFieldsRight, toCents, formatDateDDMMYYYY } from "@/lib/fss";
+import { assertOrgAccess, centsToEuroInt, fillTextFields, fillTextFieldsRight, toCents, formatDateDDMMYYYY } from "@/lib/fss";
 
 type Body = {
   organisationId: string;
@@ -113,6 +113,9 @@ export async function POST(req: Request) {
   const pdfDoc = await PDFDocument.load(templateBytes);
   const form = pdfDoc.getForm();
 
+  const childcareAns = String(body.childcare?.answer ?? "").toLowerCase();
+  const shareAns = String(body.shareOptions?.answer ?? "").toLowerCase();
+
   fillTextFields(form, {
     year_ended: String(body.year),
     company_number: org.companyRegistrationNumber ?? "",
@@ -126,6 +129,7 @@ export async function POST(req: Request) {
     principal_position: body.principalPosition ?? "",
     principal_signature: body.principalSignature ?? "",
     employee_number_fs3: String(fs3count || ""),
+    
     gross_emoluments: centsToEuroInt(gross),
     gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
     gross_emoluments_parttime: centsToEuroInt(ptGrossBase),
@@ -136,10 +140,17 @@ export async function POST(req: Request) {
     tax_deductions_overtime: "0",
     tax_arrears_deductions: "0",
     total_tax_deductions: centsToEuroInt(tax),
+    
     childcare_amount: body.childcare?.amount ?? "",
     childcare_employee_number: body.childcare?.employees ?? "",
     shareoptions_amount: body.shareOptions?.amount ?? "",
     shareoptions_employee_number: body.shareOptions?.employees ?? "",
+
+    // Write "X" inside the new text fields created on the PDF instead of using checkboxes
+    childcare_yes: childcareAns === "yes" ? "X" : "",
+    childcare_no: childcareAns === "no" ? "X" : "",
+    shareoptions_yes: shareAns === "yes" ? "X" : "",
+    shareoptions_no: shareAns === "no" ? "X" : "",
   });
 
   const rightFields: Record<string, any> = {
@@ -159,29 +170,6 @@ export async function POST(req: Request) {
   fillTextFieldsRight(form, rightFields);
 
   if (body.overrideFields) fillTextFields(form, body.overrideFields);
-
-  const childcareAns = String(body.childcare?.answer ?? "").toLowerCase();
-  const shareAns = String(body.shareOptions?.answer ?? "").toLowerCase();
-
-  // Robustly handle every checkbox naming variation possible across FS7 versions
-  fillCheckboxes(form, {
-    paid_childcare_yes: childcareAns === "yes",
-    paid_childcare_no: childcareAns === "no",
-    shareoptions_yes: shareAns === "yes",
-    shareoptions_no: shareAns === "no",
-    "Check Box1": childcareAns === "yes",
-    "Check Box2": childcareAns === "no",
-    "Check Box3": shareAns === "yes",
-    "Check Box4": shareAns === "no",
-    "Childcare Facility Yes": childcareAns === "yes",
-    "Childcare_Yes": childcareAns === "yes",
-    "Childcare Facility No": childcareAns === "no",
-    "Childcare_No": childcareAns === "no",
-    "Share Options Yes": shareAns === "yes",
-    "ShareOptions_Yes": shareAns === "yes",
-    "Share Options No": shareAns === "no",
-    "ShareOptions_No": shareAns === "no"
-  });
 
   form.flatten();
   form.flatten();

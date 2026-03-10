@@ -57,36 +57,6 @@ export function fillTextFieldsRight(form: any, fields: Record<string, any>) {
   }
 }
 
-export function fillCheckboxes(form: any, checks: Record<string, boolean>) {
-  for (const [key, val] of Object.entries(checks || {})) {
-    try {
-      const field = form.getField(key);
-      if (!field) continue;
-      
-      const type = field.constructor.name;
-      if (type.includes("CheckBox")) {
-        if (val) field.check(); else field.uncheck();
-      } else if (type.includes("TextField")) {
-        field.setText(val ? "X" : ""); // Handle text-based pseudo-checkboxes
-      } else if (type.includes("RadioGroup") || type.includes("OptionList")) {
-        if (val) {
-          const options = field.getOptions();
-          if (options.length > 0) field.select(options[0]);
-        } else {
-          field.clear();
-        }
-      } else if (type.includes("Button") || field.acroField?.setValue) {
-        if (val) {
-          const onVal = field.acroField.getOnValue?.();
-          field.acroField.setValue(onVal ?? "Yes");
-        } else {
-          field.acroField.setValue("Off");
-        }
-      }
-    } catch { /* ignore */ }
-  }
-}
-
 export function fillMoneySplit(form: any, opts: { base: string; cents: number; euroField?: string; centsField?: string; altSingleField?: string }) {
   const { base, cents, euroField, centsField, altSingleField } = opts;
   if (euroField && centsField) {
