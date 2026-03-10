@@ -122,6 +122,24 @@ export async function POST(req: Request) {
   const childcareAns = String(body.childcare?.answer ?? "").toLowerCase();
   const shareAns = String(body.shareOptions?.answer ?? "").toLowerCase();
 
+  // Targeting the exact field names provided
+  const directBoxMappings = {
+    no_of_fs3_issued: String(fs3count || ""),
+    
+    ssc_due_euros: niParts.euro, 
+    ssc_due_cents: niParts.cents,
+    
+    maternity_fund_due_euros: matParts.euro, 
+    maternity_fund_due_cents: matParts.cents,
+
+    // Keeping standard fallbacks just in case
+    B1: String(fs3count || ""),
+    E1: centsToEuro(ni),
+    E2: centsToEuro(maternity),
+    E1_euro: niParts.euro, E1_cents: niParts.cents,
+    E2_euro: matParts.euro, E2_cents: matParts.cents,
+  };
+
   fillTextFields(form, {
     year_ended: String(body.year),
     company_number: org.companyRegistrationNumber ?? "",
@@ -135,11 +153,6 @@ export async function POST(req: Request) {
     principal_position: body.principalPosition ?? "",
     principal_signature: body.principalSignature ?? "",
     
-    // Multiple variants to robustly hit Box B depending on PDF parsing
-    employee_number_fs3: String(fs3count || ""),
-    number_of_fs3s: String(fs3count || ""),
-    fs3_issued: String(fs3count || ""),
-    
     gross_emoluments: centsToEuroInt(gross),
     gross_emoluments_fulltime: centsToEuroInt(ftGrossBase),
     gross_emoluments_parttime: centsToEuroInt(ptGrossBase),
@@ -150,14 +163,6 @@ export async function POST(req: Request) {
     tax_deductions_overtime: "0",
     tax_arrears_deductions: "0",
     total_tax_deductions: centsToEuroInt(tax),
-    
-    // E1 and E2 standard mappings
-    E1: centsToEuro(ni),
-    E2: centsToEuro(maternity),
-    e1_euro: niParts.euro, e1_cents: niParts.cents,
-    E1_euro: niParts.euro, E1_cents: niParts.cents,
-    e2_euro: matParts.euro, e2_cents: matParts.cents,
-    E2_euro: matParts.euro, E2_cents: matParts.cents,
 
     childcare_amount: body.childcare?.amount ?? "",
     childcare_employee_number: body.childcare?.employees ?? "",
@@ -169,6 +174,8 @@ export async function POST(req: Request) {
     childcare_no: childcareAns === "no" ? "X" : "",
     shareoptions_yes: shareAns === "yes" ? "X" : "",
     shareoptions_no: shareAns === "no" ? "X" : "",
+
+    ...directBoxMappings
   });
 
   const rightFields: Record<string, any> = {
@@ -182,20 +189,10 @@ export async function POST(req: Request) {
     tax_deductions_overtime: "0",
     tax_arrears_deductions: "0",
     total_tax_deductions: centsToEuroInt(tax),
-    
-    employee_number_fs3: String(fs3count || ""),
-    number_of_fs3s: String(fs3count || ""),
-    fs3_issued: String(fs3count || ""),
-
-    E1: centsToEuro(ni),
-    E2: centsToEuro(maternity),
-    e1_euro: niParts.euro, e1_cents: niParts.cents,
-    E1_euro: niParts.euro, E1_cents: niParts.cents,
-    e2_euro: matParts.euro, e2_cents: matParts.cents,
-    E2_euro: matParts.euro, E2_cents: matParts.cents,
-    
     text_8frhv: formatDateDDMMYYYY(body.date ?? ""),
+    ...directBoxMappings
   };
+  
   fillTextFieldsRight(form, rightFields);
 
   if (body.overrideFields) fillTextFields(form, body.overrideFields);

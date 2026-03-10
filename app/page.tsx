@@ -21,20 +21,20 @@ export default function LandingPage() {
       <section style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 24px", display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 40, alignItems: "center" }}>
         <div>
           <div style={{ display: "inline-flex", padding: "6px 16px", borderRadius: 999, background: "var(--toggle-on-bg)", color: "#38bdf8", fontWeight: 800, fontSize: 13, marginBottom: 20, border: "1px solid var(--btn-primary-border)" }}>
-            AskMe Payroll 2.0 is live
+             V1.0.0 is live
           </div>
           <h1 style={{ fontSize: 64, lineHeight: 1.05, margin: "0 0 20px", fontWeight: 900, letterSpacing: "-1px" }}>
-            Payroll that runs <span style={{ color: "#38bdf8" }}>itself.</span>
+            Payroll Management, without the <span style={{ color: "#38bdf8" }}>headaches.</span>
           </h1>
           <p style={{ fontSize: 18, lineHeight: 1.6, color: "var(--muted)", maxWidth: 600, marginBottom: 32 }}>
-            Automate your entire payroll process, calculate taxes accurately, and pay your global team in clicks, not hours. Built for modern businesses that value time.
+            Automate your entire payroll process, calculate accurately, and pay your team in clicks, not hours. Built for modern businesses that value time.
           </p>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
             <a href="/register" style={{ padding: "14px 24px", borderRadius: 12, background: "#38bdf8", color: "#0b1220", textDecoration: "none", fontWeight: 800, transition: "transform 0.2s, box-shadow 0.2s", boxShadow: "0 8px 24px rgba(56,189,248,0.25)" }}>
-              Start 14-Day Free Trial →
+              Start 1 Month Free Trial →
             </a>
             <a href="#demos" style={{ padding: "14px 24px", borderRadius: 12, border: "1px solid var(--panel-border)", color: "var(--text)", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.background = "var(--panel-bg)"} onMouseOut={(e) => e.currentTarget.style.background = "transparent"}>
-              ▶ Watch Demo
+              ▶ View Demo
             </a>
           </div>
         </div>
@@ -46,7 +46,7 @@ export default function LandingPage() {
       {/* Features Grid */}
       <section id="features" style={{ maxWidth: 1200, margin: "0 auto", padding: "60px 24px 100px", textAlign: "center" }}>
         <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 12 }}>Everything you need to manage payroll</h2>
-        <p style={{ fontSize: 18, color: "var(--muted)", maxWidth: 600, margin: "0 auto 48px" }}>We've removed the complexity from paying your team. Enjoy a seamless experience with features designed for scale.</p>
+        <p style={{ fontSize: 18, color: "var(--muted)", maxWidth: 600, margin: "0 auto 48px" }}>We have removed the complexity from paying your team. Enjoy a seamless experience with features designed for scale.</p>
         
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, textAlign: "left" }}>
           {[
@@ -150,11 +150,11 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1000, margin: "0 auto", background: "var(--panel-bg)", border: "1px solid var(--panel-border)", borderRadius: 24, display: "grid", gridTemplateColumns: "1fr 1fr", overflow: "hidden" }}>
           <div style={{ background: "#0c1831", padding: 48 }}>
             <h2 style={{ fontSize: 32, fontWeight: 900, marginBottom: 16 }}>Ready to transform your payroll?</h2>
-            <p style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 40 }}>Book a personalized demo with our team or shoot us a message. We're here to help you ditch the payroll headaches.</p>
+            <p style={{ color: "var(--muted)", lineHeight: 1.6, marginBottom: 40 }}>Book a personalized demo with our team or shoot us a message. We are here to help you ditch the payroll headaches.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 16, color: "var(--text)" }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>✉</span> hello@askmepayroll.com</div>
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>☏</span> +356 2100 0000</div>
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>📍</span> 642, Saint Joseph Street, Hamrun</div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>✉</span> info@amlpayroll.com</div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>☏</span> +356 9908 9573</div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}><span style={{ color: "#38bdf8" }}>📍</span> Office 2, 642, Saint Joseph Street, Hamrun</div>
             </div>
           </div>
           <div style={{ padding: 48 }}>
