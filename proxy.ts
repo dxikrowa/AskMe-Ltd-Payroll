@@ -39,7 +39,7 @@ function isProtected(pathname: string) {
 function isPublicApiRoute(pathname: string) {
   return (
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/webhooks")
+    pathname.startsWith("/api/stripe")
   );
 }
 
