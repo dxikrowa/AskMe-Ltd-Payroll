@@ -67,17 +67,12 @@ export async function POST(req: Request) {
     select: { grossCents: true, taxCents: true, niCents: true, overtimeCents: true, maternityFundCents: true },
   });
 
-  // NOTE: in this app, payslip.grossCents already represents the TOTAL gross for that period
-  // (basic + overtime + bonuses/allowances etc). Overtime is also stored separately for reporting.
   const gross = payslips.reduce((a, p) => a + p.grossCents, 0);
   const tax = payslips.reduce((a, p) => a + p.taxCents, 0);
   const ni = payslips.reduce((a, p) => a + p.niCents, 0);
   const maternity = payslips.reduce((a, p) => a + (p.maternityFundCents ?? 0), 0);
-
-  // Overtime is sourced into payslips from timesheets. FS3 should reflect payslip totals.
   const overtimeCents = payslips.reduce((a, p) => a + (p.overtimeCents ?? 0), 0);
 
-  // Overtime hours (from timesheets) for the same year
   const overtimeEntries = await prisma.timesheetEntry.findMany({
     where: {
       organisationId: body.organisationId,
@@ -98,12 +93,11 @@ export async function POST(req: Request) {
   const pdfDoc = await PDFDocument.load(templateBytes);
   const form = pdfDoc.getForm();
 
-  // Avoid double-counting overtime: FS3 has both a gross box and a separate overtime box.
   const grossExcludingOvertime = Math.max(0, gross - overtimeCents);
+  const isPT = employee.employmentType === "PART_TIME";
 
   const computedFields: Record<string, any> = {
     year_ended: String(body.year),
-    // Comb field expects DDMMYYYY
     current_date: formatDateDDMMYYYY(body.date ?? ""),
 
     company_name: org.name ?? "",
@@ -114,7 +108,7 @@ export async function POST(req: Request) {
       [org.address1, org.address2, org.city].filter(Boolean).join("\n"),
     company_postcode: org.addressPostcode ?? org.postcode ?? "",
     company_number: org.companyRegistrationNumber ?? "",
-    company_number_2: "", // some templates include a second number field; harmless if missing
+    company_number_2: "", 
 
     payer_pe_number: org.peNumber ?? "",
     payer_fullname: org.payrollManagerFullName ?? "",
@@ -133,32 +127,27 @@ export async function POST(req: Request) {
     employee_postcode: employee.addressPostcode ?? "",
     employee_spouse_id: employee.spouseIdNumber ?? "",
 
-    // Template fields are period_from / period_to
     period_from: formatDateDDMMYYYY(body.periodFrom ?? `01/01/${body.year}`),
     period_to: formatDateDDMMYYYY(body.periodTo ?? `31/12/${body.year}`),
 
-    gross_emoluments_fulltime: employee.employmentType === "PART_TIME" ? "0" : centsToEuroInt(grossExcludingOvertime),
-    gross_emoluments_parttime: employee.employmentType === "PART_TIME" ? centsToEuroInt(grossExcludingOvertime) : "0",
+    gross_emoluments_fulltime: isPT ? "0" : centsToEuroInt(grossExcludingOvertime),
+    gross_emoluments_parttime: isPT ? centsToEuroInt(grossExcludingOvertime) : "0",
     overtime: centsToEuroInt(overtimeCents),
     overtime_hours: otH,
     overtime_hours_decimal: otDec ?? "00",
     director_fees: "0",
-    gross_emoluments_parttime: "0",
     c8_fringebenfits: "0",
-    // Total should reflect the *actual* total gross (already includes overtime in payslips)
     total_gross_emoluments_fringebenefits: centsToEuroInt(gross),
 
-    tax_deductions_fulltime: employee.employmentType === "PART_TIME" ? "0" : centsToEuroInt(tax),
-    tax_deductions_parttime: employee.employmentType === "PART_TIME" ? centsToEuroInt(tax) : "0",
+    tax_deductions_fulltime: isPT ? "0" : centsToEuroInt(tax),
+    tax_deductions_parttime: isPT ? centsToEuroInt(tax) : "0",
     tax_deductions_overtime: "0",
-    tax_deductions_parttime: "0",
     tax_arrears_deduction: "0",
     total_tax_deductions: centsToEuroInt(tax),
   };
 
   fillTextFields(form, computedFields);
 
-  // Right-fill comb fields for dates + amounts
   fillTextFieldsRight(form, {
     current_date: computedFields.current_date,
     period_from: computedFields.period_from,
@@ -178,27 +167,19 @@ export async function POST(req: Request) {
     total_tax_deductions: computedFields.total_tax_deductions,
   });
 
-  // ---- Section E: SSC & Maternity Fund ----
-  // Fill row 1 + totals. This keeps the form usable without manual edits.
-  // Basic weekly wage (Section E): user requirement
-  // Use total gross per pay period (incl. overtime/bonuses/etc), annualise (x12) and divide by 52.
-  // This yields the correct weekly wage for monthly payroll, while still behaving sensibly for weekly/annual.
   const payslipCount = payslips.length;
   const freq = (employee.payFrequency ?? "MONTHLY").toString().toUpperCase();
   const avgPerPeriodCents = payslipCount > 0 ? Math.round(gross / payslipCount) : 0;
   const perMonthCents = (() => {
     if (freq === "WEEKLY") return Math.round((avgPerPeriodCents * 52) / 12);
     if (freq === "ANNUAL") return Math.round(gross / 12);
-    // MONTHLY
     return avgPerPeriodCents;
   })();
   const basicWeeklyCents = Math.round((perMonthCents * 12) / 52);
 
-  // Number of weekly wages received (approx.)
   const weeksReceived = (() => {
     if (freq === "WEEKLY") return Math.max(0, Math.min(52, payslipCount));
     if (freq === "ANNUAL") return 52;
-    // MONTHLY
     return Math.max(0, Math.min(52, Math.round(payslipCount * (52 / 12))));
   })();
 
@@ -207,20 +188,12 @@ export async function POST(req: Request) {
   fillTextFields(form, { basic_ww_1_number: String(weeksReceived || "") });
   fillTextFieldsRight(form, { basic_ww_1_number: String(weeksReceived || "") });
 
-  // Payee SSC (employee) – from payslip NI totals
   fillMoneySplit(form, { base: "payee_ssc_1", cents: ni });
   fillMoneySplit(form, { base: "total_payee_ssc", cents: ni });
-
-  // Payer SSC (employer) – this app doesn't currently calculate employer SSC separately,
-  // so we default it to the payee SSC total as a practical placeholder.
   fillMoneySplit(form, { base: "payer_ssc_1", cents: ni });
   fillMoneySplit(form, { base: "total_payer_ssc", cents: ni });
-
-  // Totals
   fillMoneySplit(form, { base: "total_ssc_1", cents: ni + ni });
   fillMoneySplit(form, { base: "total_ssc", cents: ni + ni });
-
-  // Maternity fund (payer only)
   fillMoneySplit(form, { base: "payer_mfc_1", cents: maternity });
   fillMoneySplit(form, { base: "total_payer_mfc", cents: maternity });
 
