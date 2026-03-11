@@ -5,12 +5,6 @@ import { useSearchParams } from "next/navigation";
 import PdfPreview from "@/components/pdf-preview";
 import { calculateMaltaPayroll, type Period, type EmploymentType } from "@/lib/payroll/malta";
 import { MONTHLY_AVG_HOURS_FULLTIME } from "@/lib/malta";
-import taxVars from "@/lib/payroll/tax_variables.json";
-
-const WEEKLY_ALLOWANCE = (taxVars as any).WEEKLY_ALLOWANCE ?? 121.16;
-const WEEKLY_ALLOWANCE_2 = (taxVars as any).WEEKLY_ALLOWANCE_2 ?? 121.16;
-const STATUTORY_BONUS = (taxVars as any).STATUTORY_BONUS ?? 135.10;
-const STATUTORY_BONUS_2 = (taxVars as any).STATUTORY_BONUS_2 ?? 135.10;
 
 type FormState = {
   grossWage: string; period: Period; taxStatus: number; employmentType: EmploymentType;
@@ -104,7 +98,6 @@ export default function RunPayrollPage() {
     return () => { cancelled = true; };
   }, [employeeDbId]);
 
-  // AUTOMATICALLY FETCH PART TIME HOURS FROM TIMESHEETS
   useEffect(() => {
     if (!organisationId || !employeeDbId || form.employmentType !== "Part_Time") return;
     const from = payslipFields.pay_period_from; const to = payslipFields.pay_period_to;

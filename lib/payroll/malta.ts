@@ -38,6 +38,7 @@ export function calculateMaltaPayroll(input: {
   period: Period;
   taxStatus: number;
   employmentType: EmploymentType;
+  partTimeHours?: number; // MUST be declared here for TS to allow it
   includeAllowance1: boolean;
   includeAllowance2: boolean;
   includeBonus1: boolean;
@@ -49,13 +50,21 @@ export function calculateMaltaPayroll(input: {
 }) {
   const { annual: annualGross, divisor } = toAnnual(input.grossWage, input.period);
 
-  const allowanceThisPeriod =
-    (input.includeAllowance1 ? WEEKLY_ALLOWANCE : 0) +
-    (input.includeAllowance2 ? WEEKLY_ALLOWANCE_2 : 0);
+  // Pro-rata fraction calculation for Part Time workers
+  let proRataFraction = 1;
+  if (input.employmentType === "Part_Time" && typeof input.partTimeHours === "number") {
+    const maxHours = input.period === "Weekly" ? 40 : input.period === "Monthly" ? 173.33 : 2080;
+    proRataFraction = Math.min(1, Math.max(0, input.partTimeHours / maxHours));
+  }
 
-  const bonusThisPeriod =
-    (input.includeBonus1 ? STATUTORY_BONUS : 0) +
-    (input.includeBonus2 ? STATUTORY_BONUS_2 : 0);
+  // Apply the fraction to calculate exact amounts
+  const allowance1 = input.includeAllowance1 ? WEEKLY_ALLOWANCE * proRataFraction : 0;
+  const allowance2 = input.includeAllowance2 ? WEEKLY_ALLOWANCE_2 * proRataFraction : 0;
+  const bonus1 = input.includeBonus1 ? STATUTORY_BONUS * proRataFraction : 0;
+  const bonus2 = input.includeBonus2 ? STATUTORY_BONUS_2 * proRataFraction : 0;
+
+  const allowanceThisPeriod = allowance1 + allowance2;
+  const bonusThisPeriod = bonus1 + bonus2;
 
   const taxableIncome = annualGross + allowanceThisPeriod + bonusThisPeriod;
 
@@ -82,13 +91,11 @@ export function calculateMaltaPayroll(input: {
     const weeklyEqBase = input.period === "Weekly" ? input.grossWage : input.period === "Monthly" ? (input.grossWage * MONTHS_PER_YEAR) / WEEKS_PER_YEAR : input.grossWage / WEEKS_PER_YEAR;
 
     const weeklyNI = (weeklyGross: number) => {
-      // PART TIME FIX: Part time workers pay a flat 10% of their gross, capped to the maximums.
       if (input.employmentType === "Part_Time") {
         if (input.before1962) return Math.min(weeklyGross * 0.10, 49.04);
         return Math.min(weeklyGross * 0.10, 55.93);
       }
 
-      // FULL TIME RULES
       if (input.under17 && weeklyGross <= 229.44) return 6.62;
       if (!input.under17 && weeklyGross <= 229.44) return 22.94;
       if (input.apprentice && input.under17) return Math.min(weeklyGross * 0.10, 4.38);
@@ -115,6 +122,10 @@ export function calculateMaltaPayroll(input: {
 
   return {
     grossPerPeriod: input.grossWage,
+    allowance1,
+    allowance2,
+    bonus1,
+    bonus2,
     allowancePerPeriod: allowanceThisPeriod,
     bonusPerPeriod: bonusThisPeriod,
     taxPerPeriod,
