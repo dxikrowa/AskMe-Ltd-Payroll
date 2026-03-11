@@ -104,6 +104,7 @@ export default function RunPayrollPage() {
     return () => { cancelled = true; };
   }, [employeeDbId]);
 
+  // AUTOMATICALLY FETCH PART TIME HOURS FROM TIMESHEETS
   useEffect(() => {
     if (!organisationId || !employeeDbId || form.employmentType !== "Part_Time") return;
     const from = payslipFields.pay_period_from; const to = payslipFields.pay_period_to;
@@ -204,16 +205,35 @@ export default function RunPayrollPage() {
 
   const result = useMemo(() => {
     if (!gross || gross < 0) return null;
+    const ptHours = form.employmentType === "Part_Time" ? Number(payslipFields.basicpay_hours || 0) : undefined;
+
     try {
-      return calculateMaltaPayroll({ grossWage: gross + extraTaxable, period: form.period, taxStatus: form.taxStatus, employmentType: form.employmentType, includeAllowance1: form.includeAllowance1, includeAllowance2: form.includeAllowance2, includeBonus1: form.includeBonus1, includeBonus2: form.includeBonus2, includeNI: form.includeNI, under17: form.under17, apprentice: form.apprentice, before1962: form.before1962 });
+      return calculateMaltaPayroll({ 
+        grossWage: gross + extraTaxable, period: form.period, taxStatus: form.taxStatus, 
+        employmentType: form.employmentType, partTimeHours: ptHours,
+        includeAllowance1: form.includeAllowance1, includeAllowance2: form.includeAllowance2, 
+        includeBonus1: form.includeBonus1, includeBonus2: form.includeBonus2, 
+        includeNI: form.includeNI, under17: form.under17, apprentice: form.apprentice, before1962: form.before1962 
+      });
     } catch { return null; }
-  }, [gross, extraTaxable, form]);
+  }, [gross, extraTaxable, form, payslipFields.basicpay_hours]);
 
   useEffect(() => {
     if (!result || !autoFillMoneyFields) return;
     const grossWithExtras = result.grossPerPeriod + result.allowancePerPeriod + result.bonusPerPeriod;
-    setPayslipFields((p) => ({ ...p, basicpay_thispay: gross.toFixed(2), thispay_grosspay: grossWithExtras.toFixed(2), thispay_tax: result.taxPerPeriod.toFixed(2), thispay_ni: result.niPerPeriod.toFixed(2), thispay_netpay: result.netPerPeriod.toFixed(2), thispay_march_supplement: form.includeAllowance1 ? (WEEKLY_ALLOWANCE).toFixed(2) : "", thispay_september_supplement: form.includeAllowance2 ? (WEEKLY_ALLOWANCE_2).toFixed(2) : "", thispay_june_bonus: form.includeBonus1 ? (STATUTORY_BONUS).toFixed(2) : "", thispay_december_bonus: form.includeBonus2 ? (STATUTORY_BONUS_2).toFixed(2) : "" }));
-  }, [result, autoFillMoneyFields, form.includeAllowance1, form.includeAllowance2, form.includeBonus1, form.includeBonus2, gross]);
+    setPayslipFields((p) => ({ 
+      ...p, 
+      basicpay_thispay: gross.toFixed(2), 
+      thispay_grosspay: grossWithExtras.toFixed(2), 
+      thispay_tax: result.taxPerPeriod.toFixed(0),
+      thispay_ni: result.niPerPeriod.toFixed(2), 
+      thispay_netpay: result.netPerPeriod.toFixed(2), 
+      thispay_march_supplement: result.allowance1 > 0 ? result.allowance1.toFixed(2) : "", 
+      thispay_september_supplement: result.allowance2 > 0 ? result.allowance2.toFixed(2) : "", 
+      thispay_june_bonus: result.bonus1 > 0 ? result.bonus1.toFixed(2) : "", 
+      thispay_december_bonus: result.bonus2 > 0 ? result.bonus2.toFixed(2) : "" 
+    }));
+  }, [result, autoFillMoneyFields, gross]);
 
   useEffect(() => {
     if (!organisationId || !employeeDbId) return;
@@ -268,7 +288,7 @@ export default function RunPayrollPage() {
       ttd_vlpay: (totals.vl + parseMoneyish(payslipFields.vl_pay_thispay)).toFixed(2), 
       ttd_sl_pay: (totals.sl + parseMoneyish(payslipFields.sl_pay_thispay)).toFixed(2), 
       ttd_overtime_15: (totals.ot + parseMoneyish(payslipFields.overtime_15_thispay)).toFixed(2), 
-      ttd_tax: (totals.tax + parseMoneyish(payslipFields.thispay_tax)).toFixed(2),
+      ttd_tax: Math.round(totals.tax + parseMoneyish(payslipFields.thispay_tax)).toFixed(0), 
       ttd_ni: (totals.ni + parseMoneyish(payslipFields.thispay_ni)).toFixed(2),
       ttd_commissions: parseMoneyish(p.thispay_commissions).toFixed(2), 
       ttd_allowances: parseMoneyish(p.thispay_allowances).toFixed(2), 
@@ -392,9 +412,11 @@ export default function RunPayrollPage() {
                   const labelOverrides: any = { thispay_commissions: "Commissions", thispay_allowances: "Allowances", overtime_15_hours: "Overtime 1.5 Hours", overtime_15_thispay: "Overtime 1.5 This Pay", hours_vlentitled: "Hours V/L Entitled", hours_vlfrom: "Hours V/L From", hours_vlconsumed: "Hours V/L Used", hours_vlremaining: "Hours V/L Remaining" };
                   const label = labelOverrides[key] ?? String(key).replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
                   const isDateField = key === "pay_period_from" || key === "pay_period_to";
+                  const isLocked = form.employmentType === "Part_Time" && (key === "basicpay_hours" || key === "basicpay_thispay");
+
                   return (
                     <Field key={key} label={label}>
-                      {isDateField ? <DateInput value={value} onChange={(v) => setPayslipFields((p) => ({ ...p, [key]: v } as PayslipFields))} /> : <Input value={value} onChange={(v) => setPayslipFields((p) => ({ ...p, [key]: v } as PayslipFields))} />}
+                      {isDateField ? <DateInput value={value} onChange={(v) => setPayslipFields((p) => ({ ...p, [key]: v } as PayslipFields))} /> : <Input disabled={isLocked} value={value} onChange={(v) => setPayslipFields((p) => ({ ...p, [key]: v } as PayslipFields))} />}
                     </Field>
                   );
                 })}
@@ -406,7 +428,7 @@ export default function RunPayrollPage() {
                   <div>Basic: €{payslipFields.ttd_basicpay || "0.00"}</div><div>Gross: €{payslipFields.ttd_grosspay || "0.00"}</div>
                   <div>Net: €{payslipFields.ttd_netpay || "0.00"}</div><div>Vacation Leave: €{payslipFields.ttd_vlpay || "0.00"}</div>
                   <div>Sick Leave: €{payslipFields.ttd_sl_pay || "0.00"}</div><div>Overtime: €{payslipFields.ttd_overtime_15 || "0.00"}</div>
-                  <div>Tax: €{payslipFields.ttd_tax || "0.00"}</div><div>NI: €{payslipFields.ttd_ni || "0.00"}</div>
+                  <div>Tax: €{payslipFields.ttd_tax || "0"}</div><div>NI: €{payslipFields.ttd_ni || "0.00"}</div>
                 </div>
               </div>
 
@@ -420,7 +442,7 @@ export default function RunPayrollPage() {
           <Panel>
             <SectionTitle>Results</SectionTitle>
             {!result ? <EmptyState text="Enter a gross wage to see the breakdown." /> : (
-              <><StatGrid><Stat label="Gross" value={`€ ${money(result.grossPerPeriod)}`} /><Stat label="Tax" value={`€ ${money(result.taxPerPeriod)}`} /><Stat label="NI" value={`€ ${money(result.niPerPeriod)}`} /><Stat label="Allowances" value={`€ ${money(result.allowancePerPeriod)}`} /><Stat label="Bonuses" value={`€ ${money(result.bonusPerPeriod)}`} /><Stat label="Net Pay" value={`€ ${money(result.netPerPeriod)}`} highlight /></StatGrid><Divider /><SectionTitle>Annual summary</SectionTitle><Table><Row k="Annual gross" v={`€ ${money(result.annual.gross)}`} /><Row k="Annual taxable income" v={`€ ${money(result.annual.taxableIncome)}`} /><Row k="Annual tax" v={`€ ${money(result.annual.tax)}`} /><Row k="Annual NI" v={`€ ${money(result.annual.ni)}`} /><Row k="Annual net" v={`€ ${money(result.annual.net)}`} strong /></Table></>
+              <><StatGrid><Stat label="Gross" value={`€ ${money(result.grossPerPeriod)}`} /><Stat label="Tax" value={`€ ${result.taxPerPeriod.toFixed(0)}`} /><Stat label="NI" value={`€ ${money(result.niPerPeriod)}`} /><Stat label="Allowances" value={`€ ${money(result.allowancePerPeriod)}`} /><Stat label="Bonuses" value={`€ ${money(result.bonusPerPeriod)}`} /><Stat label="Net Pay" value={`€ ${money(result.netPerPeriod)}`} highlight /></StatGrid><Divider /><SectionTitle>Annual summary</SectionTitle><Table><Row k="Annual gross" v={`€ ${money(result.annual.gross)}`} /><Row k="Annual taxable income" v={`€ ${money(result.annual.taxableIncome)}`} /><Row k="Annual tax" v={`€ ${result.annual.tax.toFixed(0)}`} /><Row k="Annual NI" v={`€ ${money(result.annual.ni)}`} /><Row k="Annual net" v={`€ ${money(result.annual.net)}`} strong /></Table></>
             )}
           </Panel>
           <div style={{ marginTop: 16 }}>

@@ -69,20 +69,17 @@ export function calculateMaltaPayroll(input: {
   const taxWithOneOffAnnual = calcAnnualTax(taxableIncome);
   const taxOneOff = Math.max(0, taxWithOneOffAnnual - taxBaseAnnual);
   const taxPerPeriodBase = Math.ceil(taxBaseAnnual / divisor);
-  const taxPerPeriod = Math.round((taxPerPeriodBase + taxOneOff) * 100) / 100;
-
-  const taxDue = taxWithOneOffAnnual;
+  
+  // Round tax strictly to the nearest whole number
+  const taxPerPeriod = Math.round(taxPerPeriodBase + taxOneOff);
+  const taxDue = Math.round(taxWithOneOffAnnual);
 
   let niAnnualBase = 0;
-  let niAnnualWithOneOff = 0;
   let niPerPeriod = 0;
 
+  // National Insurance calculation EXCLUDES bonuses and allowances
   if (input.includeNI) {
-    const weeksInPeriod = input.period === "Weekly" ? 1 : input.period === "Monthly" ? WEEKS_PER_YEAR / MONTHS_PER_YEAR : WEEKS_PER_YEAR;
-
     const weeklyEqBase = input.period === "Weekly" ? input.grossWage : input.period === "Monthly" ? (input.grossWage * MONTHS_PER_YEAR) / WEEKS_PER_YEAR : input.grossWage / WEEKS_PER_YEAR;
-    const grossWithOneOffThisPeriod = input.grossWage + allowanceThisPeriod + bonusThisPeriod;
-    const weeklyEqWith = input.period === "Weekly" ? grossWithOneOffThisPeriod : input.period === "Monthly" ? (grossWithOneOffThisPeriod * MONTHS_PER_YEAR) / WEEKS_PER_YEAR : grossWithOneOffThisPeriod / WEEKS_PER_YEAR;
 
     const weeklyNI = (weeklyGross: number) => {
       // PART TIME FIX: Part time workers pay a flat 10% of their gross, capped to the maximums.
@@ -104,18 +101,12 @@ export function calculateMaltaPayroll(input: {
     };
 
     const baseWeekly = weeklyNI(weeklyEqBase);
-    const withWeekly = weeklyNI(weeklyEqWith);
 
     niAnnualBase = Math.min(baseWeekly * WEEKS_PER_YEAR, 2908.36);
-    niAnnualWithOneOff = Math.min(withWeekly * WEEKS_PER_YEAR, 2908.36);
-
-    const basePerPeriod = niAnnualBase / divisor;
-    const oneOffPeriod = Math.max(0, (withWeekly - baseWeekly) * weeksInPeriod);
-    const capPerPeriod = 2908.36 / divisor;
-    niPerPeriod = Math.min(basePerPeriod + oneOffPeriod, capPerPeriod);
+    niPerPeriod = niAnnualBase / divisor;
   }
 
-  const niDue = niAnnualWithOneOff || 0;
+  const niDue = niAnnualBase || 0;
 
   const grossWithOneOffThisPeriod = input.grossWage + allowanceThisPeriod + bonusThisPeriod;
   const netPerPeriod = grossWithOneOffThisPeriod - taxPerPeriod - niPerPeriod;
@@ -127,7 +118,7 @@ export function calculateMaltaPayroll(input: {
     allowancePerPeriod: allowanceThisPeriod,
     bonusPerPeriod: bonusThisPeriod,
     taxPerPeriod,
-    niPerPeriod,
+    niPerPeriod: Math.round(niPerPeriod * 100) / 100,
     netPerPeriod: Math.round(netPerPeriod * 100) / 100,
     annual: { gross: annualGross, taxableIncome, tax: taxDue, ni: niDue, net: netAnnual },
   };
