@@ -29,6 +29,7 @@ type PayslipFields = {
   ttd_basicpay: string; ttd_grosspay: string; ttd_netpay: string; ttd_vlpay: string; sl_pay_hours: string; sl_pay_thispay: string;
   ttd_sl_pay: string; ttd_overtime_15: string; ttd_commissions: string; ttd_allowances: string;
   ttd_december_bonus: string; ttd_september_supplement: string; ttd_june_bonus: string; ttd_march_supplement: string;
+  ttd_tax: string; ttd_ni: string;
 };
 
 const emptyPayslipFields: PayslipFields = {
@@ -39,6 +40,7 @@ const emptyPayslipFields: PayslipFields = {
   thispay_ni: "", thispay_tax: "", thispay_netpay: "", hours_vlentitled: "", hours_vlfrom: "", hours_vlconsumed: "", hours_vlremaining: "",
   ttd_basicpay: "", ttd_grosspay: "", ttd_netpay: "", ttd_vlpay: "", sl_pay_hours: "", sl_pay_thispay: "", ttd_sl_pay: "", ttd_overtime_15: "",
   ttd_commissions: "", ttd_allowances: "", ttd_december_bonus: "", ttd_september_supplement: "", ttd_june_bonus: "", ttd_march_supplement: "",
+  ttd_tax: "", ttd_ni: "",
 };
 
 function money(n: number) { return !Number.isFinite(n) ? "—" : n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -47,7 +49,7 @@ function toIsoDate(d: Date) { return new Date(d.getTime() - d.getTimezoneOffset(
 
 function baseHoursForPeriod(employee: any, period: Period): number {
   const weekly = Number(employee?.normalWeeklyHours ?? 40);
-  if (employee?.employmentType === "PART_TIME" && period !== "Annual") return 0; // part time driven entirely by timesheets
+  if (employee?.employmentType === "PART_TIME" && period !== "Annual") return 0;
   if (period === "Weekly") return weekly;
   if (period === "Annual") return weekly * 52;
   return MONTHLY_AVG_HOURS_FULLTIME * (weekly / 40);
@@ -102,7 +104,6 @@ export default function RunPayrollPage() {
     return () => { cancelled = true; };
   }, [employeeDbId]);
 
-  // Fetch PART-TIME hours automatically to compute Gross Wage and VL.
   useEffect(() => {
     if (!organisationId || !employeeDbId || form.employmentType !== "Part_Time") return;
     const from = payslipFields.pay_period_from; const to = payslipFields.pay_period_to;
@@ -110,7 +111,6 @@ export default function RunPayrollPage() {
     
     let cancelled = false;
     (async () => {
-      // Period fetching for base pay
       const qs = new URLSearchParams({ organisationId, employeeId: employeeDbId, entryType: "PART_TIME_HOURS", from, to });
       const res = await fetch(`/api/timesheets?${qs.toString()}`, { cache: "no-store" });
       if (!res.ok) return;
@@ -124,31 +124,78 @@ export default function RunPayrollPage() {
       const hourlyRateCents = employeeForLeave?.hourlyWageCents ?? 0;
       const periodGross = (ptHours * (hourlyRateCents / 100)).toFixed(2);
       
-      // Full year fetching for Vacation Leave Pro-Rata calculation
-      const yearStart = new Date(new Date(to).getFullYear(), 0, 1).toISOString();
-      const yearEnd = new Date(new Date(to).getFullYear() + 1, 0, 1).toISOString();
-      const qsYear = new URLSearchParams({ organisationId, employeeId: employeeDbId, entryType: "PART_TIME_HOURS", from: yearStart, to: yearEnd });
-      const resYear = await fetch(`/api/timesheets?${qsYear.toString()}`, { cache: "no-store" });
-      const dataYear = await resYear.json();
-      
-      const rowsYear: any[] = dataYear.rows ?? [];
-      const ptMinutesYear = rowsYear.reduce((a, r) => a + Number(r.minutes ?? 0), 0);
-      const ptHoursYear = ptMinutesYear / 60;
-      
-      // Pro-rata vacation leave: (hours worked / 2080) * 216
-      const vlEntitledHours = ((ptHoursYear / 2080) * 216).toFixed(2);
-
       setForm((s) => ({ ...s, grossWage: periodGross }));
       
       setPayslipFields((p) => ({
         ...p,
         basicpay_hours: ptHours.toFixed(2),
         basicpay_thispay: periodGross,
-        hours_vlentitled: vlEntitledHours,
       }));
     })();
     return () => { cancelled = true; };
   }, [organisationId, employeeDbId, form.employmentType, payslipFields.pay_period_from, payslipFields.pay_period_to, employeeForLeave]);
+
+  useEffect(() => {
+    if (!organisationId || !employeeDbId || !employeeForLeave || !autoFillVacationLeave) return;
+
+    const ref = new Date();
+    let cycleStart = new Date(ref.getFullYear(), 0, 1);
+    let cycleEnd = new Date(ref.getFullYear() + 1, 0, 1);
+    if (employeeForLeave.employmentStartDate) {
+      const start0 = new Date(employeeForLeave.employmentStartDate);
+      if (!Number.isNaN(start0.getTime())) {
+        const annThisYear = new Date(ref.getFullYear(), start0.getMonth(), start0.getDate());
+        cycleStart = ref < annThisYear ? new Date(ref.getFullYear() - 1, start0.getMonth(), start0.getDate()) : annThisYear;
+        cycleEnd = new Date(cycleStart.getFullYear() + 1, cycleStart.getMonth(), cycleStart.getDate());
+      }
+    }
+
+    let cancelled = false;
+    (async () => {
+      const [vlRes, cfRes] = await Promise.all([
+        fetch(`/api/vacation-leave?organisationId=${organisationId}&employeeId=${employeeDbId}`, { cache: "no-store" }),
+        fetch(`/api/vacation-leave-carry-forward?organisationId=${organisationId}&employeeId=${employeeDbId}`, { cache: "no-store" })
+      ]);
+      const vlData = await vlRes.json().catch(() => ({}));
+      const cfData = await cfRes.json().catch(() => ({}));
+      
+      if (cancelled) return;
+
+      const usedMinutesYTD = (vlData.rows || []).reduce((a: number, r: any) => {
+        const d = new Date(r.date);
+        if (d >= cycleStart && d < cycleEnd) return a + Number(r.minutesUsed || 0);
+        return a;
+      }, 0);
+
+      const key = cycleStart.toISOString().slice(0, 10);
+      const match = (cfData.rows || []).find((x: any) => (x.cycleStart || "").toString().slice(0, 10) === key);
+      const carriedMinutes = Number(match?.minutesCarried || 0);
+
+      let entitledMinutes = 0;
+      if (employeeForLeave.employmentType === "PART_TIME") {
+        const ptQs = new URLSearchParams({ organisationId, employeeId: employeeDbId, entryType: "PART_TIME_HOURS", from: cycleStart.toISOString(), to: cycleEnd.toISOString() });
+        const ptRes = await fetch(`/api/timesheets?${ptQs.toString()}`, { cache: "no-store" });
+        const ptData = await ptRes.json().catch(() => ({}));
+        const ptMins = (ptData.rows ?? []).reduce((a: number, r: any) => a + Number(r.minutes ?? 0), 0);
+        entitledMinutes = Math.round(((ptMins / 60) / 2080) * 216 * 60);
+      } else {
+        const weekly = Number(employeeForLeave.normalWeeklyHours ?? 40);
+        entitledMinutes = Math.round(216 * 60 * (weekly / 40));
+      }
+
+      const remainingMinutes = Math.max(0, entitledMinutes + carriedMinutes - usedMinutesYTD);
+
+      setPayslipFields(p => ({
+        ...p,
+        hours_vlentitled: (entitledMinutes / 60).toFixed(2),
+        hours_vlfrom: (carriedMinutes / 60).toFixed(2),
+        hours_vlconsumed: (usedMinutesYTD / 60).toFixed(2),
+        hours_vlremaining: (remainingMinutes / 60).toFixed(2),
+      }));
+
+    })();
+    return () => { cancelled = true; };
+  }, [organisationId, employeeDbId, employeeForLeave, autoFillVacationLeave]);
 
   const gross = Number(form.grossWage || 0);
   const extraTaxable = useMemo(() => {
@@ -203,14 +250,34 @@ export default function RunPayrollPage() {
 
   useEffect(() => {
     const totals = selectedPayslips.reduce((acc, p) => {
-      acc.basic += Number(p.grossCents ?? 0) / 100; acc.gross += Number(p.grossCents ?? 0) / 100;
-      acc.net += Number(p.netCents ?? 0) / 100; acc.ot += Number(p.overtimeCents ?? 0) / 100;
+      acc.basic += Number(p.grossCents ?? 0) / 100; 
+      acc.gross += Number(p.grossCents ?? 0) / 100;
+      acc.net += Number(p.netCents ?? 0) / 100; 
+      acc.ot += Number(p.overtimeCents ?? 0) / 100;
+      acc.tax += Number(p.taxCents ?? 0) / 100;
+      acc.ni += Number(p.niCents ?? 0) / 100;
       acc.vl += Number(p.vacationConsumedMinutes ?? 0) / 60 * ((Number(p.grossCents ?? 0) / 100) / Math.max(1, Number(payslipFields.basicpay_hours || 0) || 1));
       return acc;
-    }, { basic: 0, gross: 0, net: 0, vl: 0, sl: 0, ot: 0 });
+    }, { basic: 0, gross: 0, net: 0, vl: 0, sl: 0, ot: 0, tax: 0, ni: 0 });
 
-    setPayslipFields((p) => ({ ...p, ttd_basicpay: (totals.basic + parseMoneyish(payslipFields.basicpay_thispay)).toFixed(2), ttd_grosspay: (totals.gross + parseMoneyish(payslipFields.thispay_grosspay)).toFixed(2), ttd_netpay: (totals.net + parseMoneyish(payslipFields.thispay_netpay)).toFixed(2), ttd_vlpay: (totals.vl + parseMoneyish(payslipFields.vl_pay_thispay)).toFixed(2), ttd_sl_pay: (totals.sl + parseMoneyish(payslipFields.sl_pay_thispay)).toFixed(2), ttd_overtime_15: (totals.ot + parseMoneyish(payslipFields.overtime_15_thispay)).toFixed(2), ttd_commissions: parseMoneyish(p.thispay_commissions).toFixed(2), ttd_allowances: parseMoneyish(p.thispay_allowances).toFixed(2), ttd_december_bonus: parseMoneyish(p.thispay_december_bonus).toFixed(2), ttd_september_supplement: parseMoneyish(p.thispay_september_supplement).toFixed(2), ttd_june_bonus: parseMoneyish(p.thispay_june_bonus).toFixed(2), ttd_march_supplement: parseMoneyish(p.thispay_march_supplement).toFixed(2) }));
-  }, [selectedPayslips, payslipFields.basicpay_thispay, payslipFields.thispay_grosspay, payslipFields.thispay_netpay, payslipFields.vl_pay_thispay, payslipFields.sl_pay_thispay, payslipFields.overtime_15_thispay, payslipFields.thispay_commissions, payslipFields.thispay_allowances, payslipFields.thispay_december_bonus, payslipFields.thispay_september_supplement, payslipFields.thispay_june_bonus, payslipFields.thispay_march_supplement]);
+    setPayslipFields((p) => ({ 
+      ...p, 
+      ttd_basicpay: (totals.basic + parseMoneyish(payslipFields.basicpay_thispay)).toFixed(2), 
+      ttd_grosspay: (totals.gross + parseMoneyish(payslipFields.thispay_grosspay)).toFixed(2), 
+      ttd_netpay: (totals.net + parseMoneyish(payslipFields.thispay_netpay)).toFixed(2), 
+      ttd_vlpay: (totals.vl + parseMoneyish(payslipFields.vl_pay_thispay)).toFixed(2), 
+      ttd_sl_pay: (totals.sl + parseMoneyish(payslipFields.sl_pay_thispay)).toFixed(2), 
+      ttd_overtime_15: (totals.ot + parseMoneyish(payslipFields.overtime_15_thispay)).toFixed(2), 
+      ttd_tax: (totals.tax + parseMoneyish(payslipFields.thispay_tax)).toFixed(2),
+      ttd_ni: (totals.ni + parseMoneyish(payslipFields.thispay_ni)).toFixed(2),
+      ttd_commissions: parseMoneyish(p.thispay_commissions).toFixed(2), 
+      ttd_allowances: parseMoneyish(p.thispay_allowances).toFixed(2), 
+      ttd_december_bonus: parseMoneyish(p.thispay_december_bonus).toFixed(2), 
+      ttd_september_supplement: parseMoneyish(p.thispay_september_supplement).toFixed(2), 
+      ttd_june_bonus: parseMoneyish(p.thispay_june_bonus).toFixed(2), 
+      ttd_march_supplement: parseMoneyish(p.thispay_march_supplement).toFixed(2) 
+    }));
+  }, [selectedPayslips, payslipFields.basicpay_thispay, payslipFields.thispay_grosspay, payslipFields.thispay_netpay, payslipFields.thispay_tax, payslipFields.thispay_ni, payslipFields.vl_pay_thispay, payslipFields.sl_pay_thispay, payslipFields.overtime_15_thispay, payslipFields.thispay_commissions, payslipFields.thispay_allowances, payslipFields.thispay_december_bonus, payslipFields.thispay_september_supplement, payslipFields.thispay_june_bonus, payslipFields.thispay_march_supplement]);
 
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const lastUrlRef = useRef<string>("");
@@ -339,6 +406,7 @@ export default function RunPayrollPage() {
                   <div>Basic: €{payslipFields.ttd_basicpay || "0.00"}</div><div>Gross: €{payslipFields.ttd_grosspay || "0.00"}</div>
                   <div>Net: €{payslipFields.ttd_netpay || "0.00"}</div><div>Vacation Leave: €{payslipFields.ttd_vlpay || "0.00"}</div>
                   <div>Sick Leave: €{payslipFields.ttd_sl_pay || "0.00"}</div><div>Overtime: €{payslipFields.ttd_overtime_15 || "0.00"}</div>
+                  <div>Tax: €{payslipFields.ttd_tax || "0.00"}</div><div>NI: €{payslipFields.ttd_ni || "0.00"}</div>
                 </div>
               </div>
 
