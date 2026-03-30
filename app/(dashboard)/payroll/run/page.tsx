@@ -194,7 +194,6 @@ export default function RunPayrollPage() {
 
   const gross = Number(form.grossWage || 0);
   
-  // Now explicitly includes VL pay so it gets tracked & added properly into the final grosspay calculation
   const extraTaxable = useMemo(() => {
     return parseMoneyish(payslipFields.thispay_allowances) + 
            parseMoneyish(payslipFields.thispay_commissions) + 
@@ -205,17 +204,22 @@ export default function RunPayrollPage() {
   const result = useMemo(() => {
     if (!gross || gross < 0) return null;
     const ptHours = form.employmentType === "Part_Time" ? Number(payslipFields.basicpay_hours || 0) : undefined;
+    
+    // Extract VL pay to ensure NI is NOT calculated on it.
+    const vlPay = parseMoneyish(payslipFields.vl_pay_thispay);
 
     try {
       return calculateMaltaPayroll({ 
-        grossWage: gross + extraTaxable, period: form.period, taxStatus: form.taxStatus, 
+        grossWage: gross + extraTaxable, 
+        niBaseWage: gross + extraTaxable - vlPay, // Exclude Vacation Leave from NI base calculations
+        period: form.period, taxStatus: form.taxStatus, 
         employmentType: form.employmentType, partTimeHours: ptHours,
         includeAllowance1: form.includeAllowance1, includeAllowance2: form.includeAllowance2, 
         includeBonus1: form.includeBonus1, includeBonus2: form.includeBonus2, 
         includeNI: form.includeNI, under17: form.under17, apprentice: form.apprentice, before1962: form.before1962 
       });
     } catch { return null; }
-  }, [gross, extraTaxable, form, payslipFields.basicpay_hours]);
+  }, [gross, extraTaxable, form, payslipFields.basicpay_hours, payslipFields.vl_pay_thispay]);
 
   useEffect(() => {
     if (!result || !autoFillMoneyFields) return;

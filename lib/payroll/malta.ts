@@ -35,6 +35,7 @@ function calcProgressiveTax(annualValue: number, status: number) {
 
 export function calculateMaltaPayroll(input: {
   grossWage: number;
+  niBaseWage?: number; // Added to decouple NI calculation from taxable gross
   period: Period;
   taxStatus: number;
   employmentType: EmploymentType;
@@ -88,7 +89,9 @@ export function calculateMaltaPayroll(input: {
 
   // National Insurance calculation EXCLUDES bonuses and allowances
   if (input.includeNI) {
-    const weeklyEqBase = input.period === "Weekly" ? input.grossWage : input.period === "Monthly" ? (input.grossWage * MONTHS_PER_YEAR) / WEEKS_PER_YEAR : input.grossWage / WEEKS_PER_YEAR;
+    // Use niBaseWage if explicitly provided, otherwise fallback to grossWage
+    const niBase = input.niBaseWage !== undefined ? input.niBaseWage : input.grossWage;
+    const weeklyEqBase = input.period === "Weekly" ? niBase : input.period === "Monthly" ? (niBase * MONTHS_PER_YEAR) / WEEKS_PER_YEAR : niBase / WEEKS_PER_YEAR;
 
     const weeklyNI = (weeklyGross: number) => {
       if (input.employmentType === "Part_Time") {
