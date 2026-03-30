@@ -159,6 +159,8 @@ export const payslipFieldsSchema = z.object({
   ttd_grosspay: z.string().max(20).transform(sanitizeText),
   ttd_netpay: z.string().max(20).transform(sanitizeText),
   ttd_vlpay: z.string().max(20).transform(sanitizeText),
+  ttd_tax: z.string().max(20).transform(sanitizeText),
+  ttd_ni: z.string().max(20).transform(sanitizeText),
 }).partial();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
