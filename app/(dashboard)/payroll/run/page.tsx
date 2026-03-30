@@ -193,9 +193,14 @@ export default function RunPayrollPage() {
   }, [organisationId, employeeDbId, employeeForLeave, autoFillVacationLeave]);
 
   const gross = Number(form.grossWage || 0);
+  
+  // Now explicitly includes VL pay so it gets tracked & added properly into the final grosspay calculation
   const extraTaxable = useMemo(() => {
-    return parseMoneyish(payslipFields.thispay_allowances) + parseMoneyish(payslipFields.thispay_commissions) + parseMoneyish(payslipFields.overtime_15_thispay);
-  }, [payslipFields.thispay_allowances, payslipFields.thispay_commissions, payslipFields.overtime_15_thispay]);
+    return parseMoneyish(payslipFields.thispay_allowances) + 
+           parseMoneyish(payslipFields.thispay_commissions) + 
+           parseMoneyish(payslipFields.overtime_15_thispay) +
+           parseMoneyish(payslipFields.vl_pay_thispay);
+  }, [payslipFields.thispay_allowances, payslipFields.thispay_commissions, payslipFields.overtime_15_thispay, payslipFields.vl_pay_thispay]);
 
   const result = useMemo(() => {
     if (!gross || gross < 0) return null;
@@ -217,14 +222,13 @@ export default function RunPayrollPage() {
     const grossWithExtras = result.grossPerPeriod + result.allowancePerPeriod + result.bonusPerPeriod;
     
     setPayslipFields((p) => {
-      // Don't overwrite basicpay_thispay blindly if we already deducted SL / VL from it
+      // ONLY deduct Sick Leave from basic pay. VL pay is an addition entirely.
       const slPay = parseMoneyish(p.sl_pay_thispay);
-      const vlPay = parseMoneyish(p.vl_pay_thispay);
-      const deducedBasic = Math.max(0, gross - slPay - vlPay).toFixed(2);
+      const deducedBasic = Math.max(0, gross - slPay).toFixed(2);
 
       return { 
         ...p, 
-        basicpay_thispay: (slPay > 0 || vlPay > 0) ? deducedBasic : gross.toFixed(2), 
+        basicpay_thispay: slPay > 0 ? deducedBasic : gross.toFixed(2), 
         thispay_grosspay: grossWithExtras.toFixed(2), 
         thispay_tax: result.taxPerPeriod.toFixed(0),
         thispay_ni: result.niPerPeriod.toFixed(2), 
@@ -237,7 +241,7 @@ export default function RunPayrollPage() {
     });
   }, [result, autoFillMoneyFields, gross]);
 
-  // Unified Leaves Current-Period Payment Deductor (SL & VL)
+  // Unified Leaves Current-Period Payment Handler
   useEffect(() => {
     if (!organisationId || !employeeDbId) return;
     const from = payslipFields.pay_period_from; const to = payslipFields.pay_period_to;
@@ -279,16 +283,14 @@ export default function RunPayrollPage() {
       const sickPay = Math.round(sickHours * hourlyRate * 100) / 100;
       const vlPay = Math.round(vlHours * hourlyRate * 100) / 100;
 
-      const totalLeaveHours = sickHours + vlHours;
-      const totalLeavePay = sickPay + vlPay;
-      
-      const basicHoursAfterLeave = Math.max(0, Math.round((baseHours - totalLeaveHours) * 100) / 100);
-      const basicPayAfterLeave = Math.max(0, Math.round((gross - totalLeavePay) * 100) / 100);
+      // Only SL is deducted from basic pay 
+      const basicHoursAfterLeave = Math.max(0, Math.round((baseHours - sickHours) * 100) / 100);
+      const basicPayAfterLeave = Math.max(0, Math.round((gross - sickPay) * 100) / 100);
 
       setPayslipFields((p) => ({ 
         ...p, 
-        basicpay_hours: totalLeaveHours ? basicHoursAfterLeave.toFixed(2) : p.basicpay_hours, 
-        basicpay_thispay: totalLeaveHours ? basicPayAfterLeave.toFixed(2) : p.basicpay_thispay, 
+        basicpay_hours: sickHours ? basicHoursAfterLeave.toFixed(2) : p.basicpay_hours, 
+        basicpay_thispay: sickHours ? basicPayAfterLeave.toFixed(2) : p.basicpay_thispay, 
         sl_pay_hours: sickHours ? sickHours.toFixed(2) : "", 
         sl_pay_thispay: sickHours ? sickPay.toFixed(2) : "",
         vl_pay_hours: vlHours ? vlHours.toFixed(2) : "",
@@ -301,6 +303,10 @@ export default function RunPayrollPage() {
   const selectedPayslips = useMemo(() => availablePayslips.filter((p) => selectedPayslipIds.includes(p.id)), [availablePayslips, selectedPayslipIds]);
 
   useEffect(() => {
+    // Current valid hourly rate needed because past VL pay is not statically saved in cents within schema
+    const baseHrs = employeeForLeave ? baseHoursForPeriod(employeeForLeave, form.period) : 173.33;
+    const currentHourlyRate = baseHrs > 0 ? gross / baseHrs : 0;
+
     const totals = selectedPayslips.reduce((acc, p) => {
       acc.basic += Number(p.grossCents ?? 0) / 100; 
       acc.gross += Number(p.grossCents ?? 0) / 100;
@@ -308,7 +314,7 @@ export default function RunPayrollPage() {
       acc.ot += Number(p.overtimeCents ?? 0) / 100;
       acc.tax += Number(p.taxCents ?? 0) / 100;
       acc.ni += Number(p.niCents ?? 0) / 100;
-      acc.vl += Number(p.vacationConsumedMinutes ?? 0) / 60 * ((Number(p.grossCents ?? 0) / 100) / Math.max(1, Number(payslipFields.basicpay_hours || 0) || 1));
+      acc.vl += (Number(p.vacationConsumedMinutes ?? 0) / 60) * currentHourlyRate;
       return acc;
     }, { basic: 0, gross: 0, net: 0, vl: 0, sl: 0, ot: 0, tax: 0, ni: 0 });
 
@@ -329,7 +335,7 @@ export default function RunPayrollPage() {
       ttd_june_bonus: parseMoneyish(p.thispay_june_bonus).toFixed(2), 
       ttd_march_supplement: parseMoneyish(p.thispay_march_supplement).toFixed(2) 
     }));
-  }, [selectedPayslips, payslipFields.basicpay_thispay, payslipFields.thispay_grosspay, payslipFields.thispay_netpay, payslipFields.thispay_tax, payslipFields.thispay_ni, payslipFields.vl_pay_thispay, payslipFields.sl_pay_thispay, payslipFields.overtime_15_thispay, payslipFields.thispay_commissions, payslipFields.thispay_allowances, payslipFields.thispay_december_bonus, payslipFields.thispay_september_supplement, payslipFields.thispay_june_bonus, payslipFields.thispay_march_supplement]);
+  }, [selectedPayslips, payslipFields.basicpay_thispay, payslipFields.thispay_grosspay, payslipFields.thispay_netpay, payslipFields.thispay_tax, payslipFields.thispay_ni, payslipFields.vl_pay_thispay, payslipFields.sl_pay_thispay, payslipFields.overtime_15_thispay, payslipFields.thispay_commissions, payslipFields.thispay_allowances, payslipFields.thispay_december_bonus, payslipFields.thispay_september_supplement, payslipFields.thispay_june_bonus, payslipFields.thispay_march_supplement, employeeForLeave, form.period, gross]);
 
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const lastUrlRef = useRef<string>("");
@@ -367,7 +373,6 @@ export default function RunPayrollPage() {
     setPdfActionStatus("idle");
   }
 
-  // Included basicpay_thispay, vl_pay_hours, and vl_pay_thispay for visibility alongside the rest.
   const shownPayslipKeys: (keyof PayslipFields)[] = ["employee_name", "employee_id", "employee_designation", "employer_name", "employer_address", "pay_period_from", "pay_period_to", "overtime_15_hours", "overtime_15_thispay", "basicpay_hours", "basicpay_thispay", "thispay_allowances", "thispay_commissions", "hours_vlentitled", "hours_vlfrom", "hours_vlconsumed", "hours_vlremaining", "vl_pay_hours", "vl_pay_thispay", "sl_pay_hours", "sl_pay_thispay"];
 
   return (
