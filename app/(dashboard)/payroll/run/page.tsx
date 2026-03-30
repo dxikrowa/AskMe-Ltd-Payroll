@@ -129,6 +129,69 @@ export default function RunPayrollPage() {
     return () => { cancelled = true; };
   }, [organisationId, employeeDbId, form.employmentType, payslipFields.pay_period_from, payslipFields.pay_period_to, employeeForLeave]);
 
+  // Vacation Leave YTD Tracker
+  useEffect(() => {
+    if (!organisationId || !employeeDbId || !employeeForLeave || !autoFillVacationLeave) return;
+
+    const ref = new Date();
+    let cycleStart = new Date(ref.getFullYear(), 0, 1);
+    let cycleEnd = new Date(ref.getFullYear() + 1, 0, 1);
+    if (employeeForLeave.employmentStartDate) {
+      const start0 = new Date(employeeForLeave.employmentStartDate);
+      if (!Number.isNaN(start0.getTime())) {
+        const annThisYear = new Date(ref.getFullYear(), start0.getMonth(), start0.getDate());
+        cycleStart = ref < annThisYear ? new Date(ref.getFullYear() - 1, start0.getMonth(), start0.getDate()) : annThisYear;
+        cycleEnd = new Date(cycleStart.getFullYear() + 1, cycleStart.getMonth(), cycleStart.getDate());
+      }
+    }
+
+    let cancelled = false;
+    (async () => {
+      const [vlRes, cfRes] = await Promise.all([
+        fetch(`/api/vacation-leave?organisationId=${organisationId}&employeeId=${employeeDbId}`, { cache: "no-store" }),
+        fetch(`/api/vacation-leave-carry-forward?organisationId=${organisationId}&employeeId=${employeeDbId}`, { cache: "no-store" })
+      ]);
+      const vlData = await vlRes.json().catch(() => ({}));
+      const cfData = await cfRes.json().catch(() => ({}));
+      
+      if (cancelled) return;
+
+      const usedMinutesYTD = (vlData.rows || []).reduce((a: number, r: any) => {
+        const d = new Date(r.date);
+        if (d >= cycleStart && d < cycleEnd) return a + Number(r.minutesUsed || 0);
+        return a;
+      }, 0);
+
+      const key = cycleStart.toISOString().slice(0, 10);
+      const match = (cfData.rows || []).find((x: any) => (x.cycleStart || "").toString().slice(0, 10) === key);
+      const carriedMinutes = Number(match?.minutesCarried || 0);
+
+      let entitledMinutes = 0;
+      if (employeeForLeave.employmentType === "PART_TIME") {
+        const ptQs = new URLSearchParams({ organisationId, employeeId: employeeDbId, entryType: "PART_TIME_HOURS", from: cycleStart.toISOString(), to: cycleEnd.toISOString() });
+        const ptRes = await fetch(`/api/timesheets?${ptQs.toString()}`, { cache: "no-store" });
+        const ptData = await ptRes.json().catch(() => ({}));
+        const ptMins = (ptData.rows ?? []).reduce((a: number, r: any) => a + Number(r.minutes ?? 0), 0);
+        entitledMinutes = Math.round(((ptMins / 60) / 2080) * 216 * 60);
+      } else {
+        const weekly = Number(employeeForLeave.normalWeeklyHours ?? 40);
+        entitledMinutes = Math.round(216 * 60 * (weekly / 40));
+      }
+
+      const remainingMinutes = Math.max(0, entitledMinutes + carriedMinutes - usedMinutesYTD);
+
+      setPayslipFields(p => ({
+        ...p,
+        hours_vlentitled: (entitledMinutes / 60).toFixed(2),
+        hours_vlfrom: (carriedMinutes / 60).toFixed(2),
+        hours_vlconsumed: (usedMinutesYTD / 60).toFixed(2),
+        hours_vlremaining: (remainingMinutes / 60).toFixed(2),
+      }));
+
+    })();
+    return () => { cancelled = true; };
+  }, [organisationId, employeeDbId, employeeForLeave, autoFillVacationLeave]);
+
   const gross = Number(form.grossWage || 0);
   const extraTaxable = useMemo(() => {
     return parseMoneyish(payslipFields.thispay_allowances) + parseMoneyish(payslipFields.thispay_commissions) + parseMoneyish(payslipFields.overtime_15_thispay);
@@ -152,9 +215,29 @@ export default function RunPayrollPage() {
   useEffect(() => {
     if (!result || !autoFillMoneyFields) return;
     const grossWithExtras = result.grossPerPeriod + result.allowancePerPeriod + result.bonusPerPeriod;
-    setPayslipFields((p) => ({ ...p, basicpay_thispay: gross.toFixed(2), thispay_grosspay: grossWithExtras.toFixed(2), thispay_tax: result.taxPerPeriod.toFixed(2), thispay_ni: result.niPerPeriod.toFixed(2), thispay_netpay: result.netPerPeriod.toFixed(2), thispay_march_supplement: form.includeAllowance1 ? (WEEKLY_ALLOWANCE).toFixed(2) : "", thispay_september_supplement: form.includeAllowance2 ? (WEEKLY_ALLOWANCE_2).toFixed(2) : "", thispay_june_bonus: form.includeBonus1 ? (STATUTORY_BONUS).toFixed(2) : "", thispay_december_bonus: form.includeBonus2 ? (STATUTORY_BONUS_2).toFixed(2) : "" }));
-  }, [result, autoFillMoneyFields, form.includeAllowance1, form.includeAllowance2, form.includeBonus1, form.includeBonus2, gross]);
+    
+    setPayslipFields((p) => {
+      // Don't overwrite basicpay_thispay blindly if we already deducted SL / VL from it
+      const slPay = parseMoneyish(p.sl_pay_thispay);
+      const vlPay = parseMoneyish(p.vl_pay_thispay);
+      const deducedBasic = Math.max(0, gross - slPay - vlPay).toFixed(2);
 
+      return { 
+        ...p, 
+        basicpay_thispay: (slPay > 0 || vlPay > 0) ? deducedBasic : gross.toFixed(2), 
+        thispay_grosspay: grossWithExtras.toFixed(2), 
+        thispay_tax: result.taxPerPeriod.toFixed(0),
+        thispay_ni: result.niPerPeriod.toFixed(2), 
+        thispay_netpay: result.netPerPeriod.toFixed(2), 
+        thispay_march_supplement: result.allowance1 > 0 ? result.allowance1.toFixed(2) : "", 
+        thispay_september_supplement: result.allowance2 > 0 ? result.allowance2.toFixed(2) : "", 
+        thispay_june_bonus: result.bonus1 > 0 ? result.bonus1.toFixed(2) : "", 
+        thispay_december_bonus: result.bonus2 > 0 ? result.bonus2.toFixed(2) : "" 
+      }
+    });
+  }, [result, autoFillMoneyFields, gross]);
+
+  // Unified Leaves Current-Period Payment Deductor (SL & VL)
   useEffect(() => {
     if (!organisationId || !employeeDbId) return;
     const from = payslipFields.pay_period_from; const to = payslipFields.pay_period_to;
