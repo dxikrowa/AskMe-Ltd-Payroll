@@ -36,7 +36,21 @@ export async function GET(req: Request) {
     where: {
       organisationId,
       ...(employeeId ? { employeeId } : {}),
-      createdAt: { gte: range.start, lt: range.end },
+      // Filter by the pay period instead of when the payslip was generated
+      OR: [
+        {
+          payPeriodTo: { gte: range.start, lt: range.end },
+        },
+        {
+          payPeriodTo: null,
+          payPeriodFrom: { gte: range.start, lt: range.end },
+        },
+        {
+          payPeriodTo: null,
+          payPeriodFrom: null,
+          createdAt: { gte: range.start, lt: range.end },
+        },
+      ],
     },
     orderBy: { createdAt: "asc" },
     select: {
