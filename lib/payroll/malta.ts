@@ -35,11 +35,11 @@ function calcProgressiveTax(annualValue: number, status: number) {
 
 export function calculateMaltaPayroll(input: {
   grossWage: number;
-  niBaseWage?: number; // Added to decouple NI calculation from taxable gross
+  niBaseWage?: number; 
   period: Period;
   taxStatus: number;
   employmentType: EmploymentType;
-  partTimeHours?: number; // MUST be declared here for TS to allow it
+  partTimeHours?: number; 
   includeAllowance1: boolean;
   includeAllowance2: boolean;
   includeBonus1: boolean;
@@ -87,9 +87,8 @@ export function calculateMaltaPayroll(input: {
   let niAnnualBase = 0;
   let niPerPeriod = 0;
 
-  // National Insurance calculation EXCLUDES bonuses and allowances
+  // National Insurance calculation
   if (input.includeNI) {
-    // Use niBaseWage if explicitly provided, otherwise fallback to grossWage
     const niBase = input.niBaseWage !== undefined ? input.niBaseWage : input.grossWage;
     const weeklyEqBase = input.period === "Weekly" ? niBase : input.period === "Monthly" ? (niBase * MONTHS_PER_YEAR) / WEEKS_PER_YEAR : niBase / WEEKS_PER_YEAR;
 
@@ -99,10 +98,15 @@ export function calculateMaltaPayroll(input: {
         return Math.min(weeklyGross * 0.10, 55.93);
       }
 
-      if (input.under17 && weeklyGross <= 229.44) return 6.62;
-      if (!input.under17 && weeklyGross <= 229.44) return 22.94;
       if (input.apprentice && input.under17) return Math.min(weeklyGross * 0.10, 4.38);
       if (input.apprentice) return Math.min(weeklyGross * 0.10, 7.94);
+      
+      // Under 17 pays a flat 6.62 if earning full minimum wage, otherwise 10% for partial work
+      if (input.under17 && weeklyGross <= 229.44) return Math.min(weeklyGross * 0.10, 6.62);
+      
+      // Full time employees earning below the minimum threshold pay exactly 10%
+      if (!input.under17 && weeklyGross <= 229.44) return weeklyGross * 0.10;
+      
       if (input.before1962 && weeklyGross >= 229.45 && weeklyGross <= 490.38) return weeklyGross * 0.10;
       if (input.before1962 && weeklyGross >= 490.39) return 49.04;
       if (!input.before1962 && weeklyGross >= 229.45 && weeklyGross <= 559.30) return weeklyGross * 0.10;
